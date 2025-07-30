@@ -9,7 +9,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Benchmark some poses by fitting a NeRF. Consult the README.md for more info.'
     )
-    parser.add_argument('--pose_file', type=str, required=True, help='Path to the poses file, in ACE0 format. '
+    # parser.add_argument("--is_vggt", action="store_true", help="If set, the script will convert format.")
+    parser.add_argument('--pose_file', type=str, required=True, help='Path to the poses file, in ACE0 or vggt format. '
                         ' Poses with confidence <1000 will be excluded from the training set.')
     parser.add_argument('--output_dir', type=str, required=True,
                         help='Output directory where the benchmark results will be written')
@@ -25,6 +26,8 @@ if __name__ == '__main__':
                         help='Type of camera optimizer to use, might improve quality but break the benchmark')
     parser.add_argument('--max_resolution', type=int, default=640,
                         help='Maximum resolution of the images to use for the benchmark')
+    parser.add_argument('--run_ba',action='store_true',
+                        help='If true, run bundle adjustment before runing the benchmark')
     args = parser.parse_args()
 
     run_benchmark(
@@ -35,5 +38,6 @@ if __name__ == '__main__':
         dry_run=args.no_run_nerfstudio,
         method=args.method,
         max_resolution=args.max_resolution,
-        camera_optimizer=args.camera_optimizer
+        camera_optimizer=args.camera_optimizer,
+        run_ba=args.run_ba
     )

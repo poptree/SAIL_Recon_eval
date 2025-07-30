@@ -1,0 +1,3 @@
+bash scripts/eval_vggt_tnt_training_videos_auto.sh
+bash scripts/eval_vggt_tnt_intermediate_videos_auto.sh
+bash scripts/eval_vggt_tnt_advanced_videos_auto.sh
