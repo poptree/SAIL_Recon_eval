@@ -1,3 +1,26 @@
+# SAIL-Recon Eval
+
+Please follow the instruction below to setup the enviorment.
+
+```bash
+# Runing PSNR benchmark
+bash scripts/scripts/eval_sailrecon_7scenes.sh
+bash scripts/scripts/eval_sailrecon_mip360.sh
+bash scripts/scripts/eval_sailrecon_tnt_advanced_videos.sh
+bash scripts/scripts/eval_sailrecon_tnt_advanced.sh
+bash scripts/scripts/eval_sailrecon_tnt_intermediate_videos.sh
+bash scripts/scripts/eval_sailrecon_tnt_intermediate.sh
+bash scripts/scripts/eval_sailrecon_tnt_training_videos.sh
+bash scripts/scripts/eval_sailrecon_tnt_training.sh
+
+# show result of PSNR benchmark
+python scripts/show_benchmark_results.py benchmark_output/sail-recon/tnt_training_videos
+
+# show result of pose benchmark
+python benchmarks/eval_sailrecon_pose.py --dir reconstructions/sail-recon
+```
+
+
 # ACE0 (ACE Zero)
 
 This repository contains the code associated to the ACE0 paper:

@@ -23,6 +23,10 @@ for key in keys:
     header_str += key + " "
 print(header_str)
 
+total_psnr = 0.0
+total_ssim = 0.0
+total_lpips = 0.0
+total_scenes = 0
 # Loop through scenes of dataset
 for scene_folder in scene_folders:
     # Specify result file
@@ -43,7 +47,16 @@ for scene_folder in scene_folders:
             for key in keys:
                 if key in data['results']:
                     out_str += str(data['results'][key]) + " "
+                    if key == 'psnr':
+                        total_psnr += data['results'][key]
+                    elif key == 'ssim':
+                        total_ssim += data['results'][key]
+                    elif key == 'lpips':
+                        total_lpips += data['results'][key]
                 else:
                     out_str += "Invalid Key "
+            total_scenes += 1
 
     print(out_str)
+print("Total: ", total_psnr, total_ssim, total_lpips)
+print("Average : ", total_psnr / total_scenes if total_scenes > 0 else 0, total_ssim / total_scenes if total_scenes > 0 else 0, total_lpips / total_scenes if total_scenes > 0 else 0)

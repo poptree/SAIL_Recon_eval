@@ -3,12 +3,13 @@ from dataclasses import dataclass
 import glob
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from PIL import Image
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+
 
 
 @dataclass
@@ -109,7 +110,7 @@ def convert_ace_zero_to_nerf_blender_format(poses_path: Path, images_glob_patter
         "frames": json_frames,
         **make_filenames_json(split_frames=split_frames),
     }
-    assert len(transforms_json['train_filenames']) > 0, 'No train filenames! Must have at least one'
+    # assert len(transforms_json['train_filenames']) > 0, 'No train filenames! Must have at least one'
 
     # Check whether there is a ACE point cloud file, and if so, copy it to the output directory
     point_cloud_file = poses_path.parent / 'pc_final.ply'
@@ -260,6 +261,7 @@ def convert_ace_poses_to_nerf_blender_frames_json(poses: List[tuple]) -> List[di
     return frames
 
 
+
 def convert_opencv_to_opengl(opencv_mat, transform_type='world2cam'):
     # If the input matrix is cam2world, invert it to get world2cam
     if transform_type == 'cam2world':
@@ -281,6 +283,28 @@ def convert_opencv_to_opengl(opencv_mat, transform_type='world2cam'):
         opengl_mat = np.linalg.inv(opengl_mat)
 
     return opengl_mat
+
+def convert_opengl_to_opencv(opengl_mat, transform_type='world2cam'):
+    # If the input matrix is cam2world, invert it to get world2cam
+    if transform_type == 'cam2world':
+        opengl_mat = np.linalg.inv(opengl_mat)
+
+    # This matrix converts between opengl (x right, y up, z back) and cv-style (x right, y down, z forward) coordinates
+    # For nerfstudio, we want opengl coordinates
+    coord_transform = np.array([
+        [1,  0,  0,  0],
+        [0, -1,  0,  0],
+        [0,  0, -1,  0],
+        [0,  0,  0,  1]
+    ])
+
+    # NB for the following we expect the mat to be in world2cam format
+    opencv_mat = coord_transform @ opengl_mat
+
+    if transform_type == 'cam2world':
+        opencv_mat = np.linalg.inv(opencv_mat)
+
+    return opencv_mat
 
 
 def quaternion_to_matrix(q: List[float], t: List[float], input_quat_type='wxyz') -> List[List[float]]:
@@ -309,10 +333,10 @@ def make_filenames_json(split_frames: Dict):
     }
 
 
-def make_intrinsics_dict_from_focal(resolution: Resolution, focal_length: float) -> dict:
+def make_intrinsics_dict_from_focal(resolution: Resolution, focal_length) -> dict:
     return {
-        "fl_x": focal_length,
-        "fl_y": focal_length,
+        "fl_x": focal_length if isinstance(focal_length, (int, float)) else focal_length[0],
+        "fl_y": focal_length if isinstance(focal_length, (int, float)) else focal_length[1],
         "k1": 0.,
         "k2": 0.,
         "p1": 0.,

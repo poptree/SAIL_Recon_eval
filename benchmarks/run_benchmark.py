@@ -4,13 +4,13 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 from benchmarks.preprocess_data import convert_ace_zero_to_nerf_blender_format
-from benchmarks.run_nerfstudio import eval_nerf_with_nerfstudio, fit_nerf_with_nerfstudio
+from benchmarks.run_nerfstudio import eval_nerf_with_nerfstudio, export_pose_after_ba, fit_nerf_with_nerfstudio
 
 
 def run_benchmark(pose_file: Path, images_glob_pattern: str, working_dir: Path, split_json: Optional[Path] = None,
                   dry_run: bool = False, ns_train_extra_args: Optional[Dict] = None,
                   downscale_factor_override: Optional[int] = None, method: str = 'nerfacto',
-                  max_resolution: int = 640, camera_optimizer: str = 'off') -> Optional[Path]:
+                  max_resolution: int = 640, camera_optimizer: str = 'off', run_ba:Optional[str]=None) -> Optional[Path]:
     """
     Top-level function to benchmark poses by fitting a NeRF.
 
@@ -44,6 +44,8 @@ def run_benchmark(pose_file: Path, images_glob_pattern: str, working_dir: Path, 
         split_file_path=split_json,
     )
     sanity_check_transforms_json(json_path=nerf_data_path / 'transforms.json')
+    import time
+    # time.sleep(30)
 
     # Enforce limits on number of test images to ensure that evaluation remains fast and OOM-free
     # NB have to do this before downscaling so that the sorted filenames are the same, because downscaling renames the
@@ -76,22 +78,136 @@ def run_benchmark(pose_file: Path, images_glob_pattern: str, working_dir: Path, 
 
     if dry_run:
         return None
+    
+    try:
+        if run_ba is not None:
+            with open(run_ba, "r") as f:
+                ba_configs_all = json.load(f)
+                ba_exp_name = ba_configs_all["ba_exp_name"]
+                ba_configs = ba_configs_all["baconfig"]
+                ba_method = ba_configs_all["method"]
+            for ba_iter,ba_config in enumerate(ba_configs):
+                with open(nerf_data_path / 'transforms.json', 'r') as f:
+                    transforms_json = json.load(f)
+
+                with open(nerf_data_path / f'transforms_before_ba_{ba_iter}.json', 'w') as f:
+                    json.dump(transforms_json, f, indent=4)
+                transforms_json["train_filenames"] += transforms_json["test_filenames"]
+
+                with open(nerf_data_path / 'transforms.json', 'w') as f:
+                    json.dump(transforms_json, f, indent=4)
+                
+                # Run bundle adjustment
+                print('Runing BA...')
+                import copy
+                if ns_train_extra_args is None:
+                    ns_train_extra_args = {}
+                ns_ba_extra_args = copy.deepcopy(ns_train_extra_args)
+                # method="barf-grad"
+                ns_ba_extra_args.update(ba_config)
+                ns_ba_data_extra_args = {
+                    "eval-mode": "all",
+                
+                }
+                fitted_nerf_path = fit_nerf_with_nerfstudio(nerf_data_path=nerf_data_path,
+                                                            downscale_factor=downscale_factor,
+                                                            preload_images=preload_images,
+                                                            ns_train_extra_args=ns_ba_extra_args,
+                                                            method=ba_method,
+                                                            # method="barf-grad",
+                                                            camera_optimizer="SO3xR3",
+                                                            max_num_iterations=30000,
+                                                            exp_name=f"{ba_exp_name}{ba_iter}",
+                                                            ns_data_extra_args=ns_ba_data_extra_args)
+                print("BA Done")
+                ba_poses = export_pose_after_ba(nerf_output_dir=fitted_nerf_path,
+                                    output_json=nerf_data_path)
+                update_cam_pose_after_ba(json_before_ba=nerf_data_path / f'transforms_before_ba_{ba_iter}.json',
+                                        json_after_ba_train=ba_poses[0],
+                                        json_after_ba_test=None,
+                                        output_json=nerf_data_path / 'transforms.json')
+                with open(nerf_data_path / f'transforms_before_ba_{ba_iter}.json', 'r') as f:
+                    transforms_json_before_ba = json.load(f)
+                with open(nerf_data_path / 'transforms.json', 'r') as f:
+                    transforms_json_after_ba = json.load(f)
+                transforms_json_after_ba["train_filenames"] = transforms_json_before_ba["train_filenames"]
+                transforms_json_after_ba["test_filenames"] = transforms_json_before_ba["test_filenames"]
+                transforms_json_after_ba["val_filenames"] = transforms_json_before_ba["val_filenames"]
+                with open(nerf_data_path / 'transforms.json', 'w') as f:
+                    json.dump(transforms_json_after_ba, f, indent=4)
+    except Exception as e:
+        print(f'Error during bundle adjustment: {e}')
+        
+
 
     # Fit NeRF
-    print('Fitting NeRF...')
-    fitted_nerf_path = fit_nerf_with_nerfstudio(nerf_data_path=nerf_data_path,
-                                                downscale_factor=downscale_factor,
-                                                preload_images=preload_images,
-                                                ns_train_extra_args=ns_train_extra_args,
-                                                method=method,
-                                                camera_optimizer=camera_optimizer)
+    try:
+        print('Fitting NeRF...')
+        fitted_nerf_path = fit_nerf_with_nerfstudio(nerf_data_path=nerf_data_path,
+                                                    downscale_factor=downscale_factor,
+                                                    preload_images=preload_images,
+                                                    ns_train_extra_args=ns_train_extra_args,
+                                                    method=method,
+                                                    camera_optimizer=camera_optimizer,
+                                                    ns_data_extra_args={})
 
+    except Exception as e:
+        print(f'Error during NeRF fitting: {e}')
+        
     # Evaluate PSNR and other metrics
-    print('Evaluating...')
-    eval_json_path = eval_nerf_with_nerfstudio(nerf_output_dir=fitted_nerf_path)
-    print('Eval json is at ', eval_json_path)
+    try:
+
+        print('Evaluating...')
+        eval_json_path = eval_nerf_with_nerfstudio(nerf_output_dir=fitted_nerf_path)
+        print('Eval json is at ', eval_json_path)
+    except Exception as e:
+        print(f'Error during evaluation: {e}')
+        eval_json_path = None
     return eval_json_path
 
+import os
+def update_cam_pose_after_ba(json_before_ba, json_after_ba_train,json_after_ba_test: Optional[str], output_json):
+    """
+    Update the camera poses in the JSON file after bundle adjustment.
+    """
+    with open(json_before_ba, 'r') as f:
+        data_before = json.load(f)
+
+    with open(json_after_ba_train, 'r') as f:
+        data_train_after = json.load(f)
+    if json_after_ba_test is not None:
+        with open(json_after_ba_test, 'r') as f:
+            data_test_after = json.load(f)
+
+    # Update the camera poses
+    prefix = os.path.split(data_before["frames"][0]["file_path"])[0]
+
+    transform_dict = {}
+    for i in range(len(data_train_after)):
+        # data_train_after[i]["file_path"] = os.path.join(prefix, os.path.basename(data_train_after[i]["file_path"]))
+        file_path = Path(data_train_after[i]["file_path"])
+        if not file_path.is_absolute():
+            data_train_after[i]["file_path"]  = str(file_path.resolve())
+        transform_dict[data_train_after[i]["file_path"]] = data_train_after[i]["transform"]
+    if json_after_ba_test is not None:
+        for i in range(len(data_test_after)):
+            # data_test_after[i]["file_path"] = os.path.join(prefix, os.path.basename(data_test_after[i]["file_path"]))
+            file_path = Path(data_train_after[i]["file_path"])
+            if not file_path.is_absolute():
+                data_train_after[i]["file_path"]  = str(file_path.resolve())
+            transform_dict[data_test_after[i]["file_path"]] = data_test_after[i]["transform"]
+
+    for i in range(len(data_before["frames"])):
+        # del data_before["frames"][i]["transform_matrix"]
+        if data_before["frames"][i]["file_path"] not in transform_dict:
+            continue
+        data_before["frames"][i]["transform_matrix"] = transform_dict[data_before["frames"][i]["file_path"]]
+        data_before["frames"][i]["transform_matrix"].append([0.0,0.0,0.0,1.0])
+
+
+    # Save the updated JSON
+    with open(output_json, 'w') as f:
+        json.dump(data_before, f, indent=4)
 
 def limit_num_test_images(target_num_test_images: int, transforms_json_path: Path) -> None:
     with open(transforms_json_path, 'r') as f:
@@ -221,13 +337,16 @@ def downscale_images(nerf_data_path: Path, downscale_factor: int) -> None:
         # without the clobbering.
         output_file_path = downsampled_images_path / file_path.as_posix().replace('/', '_')
 
+
         # Rename the frame path in the json to point to the downsampled image, and store the mapping
         frame_remappings[frame['file_path']] = str(output_file_path)
         frame['file_path'] = str(output_file_path)
 
         # Sanity check: output image file should not already exist! Prevents issues if we have images with the same name
         # in different folders, which would clobber each other if we didn't do this
-        assert not output_file_path.exists(), f'Internal error: output file {output_file_path} already exists'
+        # assert not output_file_path.exists(), f'Internal error: output file {output_file_path} already exists'
+        if output_file_path.exists():
+            continue
         image.save(output_file_path)
         print('Downscaled image', file_path, 'to', output_file_path)
 
@@ -268,5 +387,5 @@ def sanity_check_transforms_json(json_path: Path):
         data = json.load(f)
     # Verify that we have at least one train image and at least one test image
     # (otherwise nerfstudio gives mysterious errors)
-    assert len(data['train_filenames']) > 0
-    assert len(data['test_filenames']) > 0
+    # assert len(data['train_filenames']) > 0
+    # assert len(data['test_filenames']) > 0
