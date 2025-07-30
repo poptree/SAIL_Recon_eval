@@ -3,28 +3,66 @@ from pathlib import Path
 
 from benchmarks.run_benchmark import run_benchmark
 
-
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Benchmark some poses by fitting a NeRF. Consult the README.md for more info.'
+        description="Benchmark some poses by fitting a NeRF. Consult the README.md for more info."
     )
-    parser.add_argument('--pose_file', type=str, required=True, help='Path to the poses file, in ACE0 format. '
-                        ' Poses with confidence <1000 will be excluded from the training set.')
-    parser.add_argument('--output_dir', type=str, required=True,
-                        help='Output directory where the benchmark results will be written')
-    parser.add_argument('--images_glob_pattern', type=str, required=True,
-                        help='Pattern relative to working directory to glob for images')
-    parser.add_argument('--split_json', type=str, required=False,
-                        help='Path to a JSON file containing splits; if not given, every 8 images will be test images')
-    parser.add_argument('--no_run_nerfstudio', action='store_true',
-                        help='If given, the script will generate Nerfstudio input files but not run Nerfstudio')
-    parser.add_argument('--method', type=str, default='nerfacto', choices=['nerfacto', 'splatfacto'],
-                        help='Method to use for fitting NeRF')
-    parser.add_argument('--camera_optimizer', type=str, default='off', choices=['off', 'SO3xR3', 'SE3'],
-                        help='Type of camera optimizer to use, might improve quality but break the benchmark')
-    parser.add_argument('--max_resolution', type=int, default=640,
-                        help='Maximum resolution of the images to use for the benchmark')
+    parser.add_argument(
+        "--pose_file",
+        type=str,
+        required=True,
+        help="Path to the poses file, in ACE0 or vggt format. "
+        " Poses with confidence <1000 will be excluded from the training set.",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        required=True,
+        help="Output directory where the benchmark results will be written",
+    )
+    parser.add_argument(
+        "--images_glob_pattern",
+        type=str,
+        required=True,
+        help="Pattern relative to working directory to glob for images",
+    )
+    parser.add_argument(
+        "--split_json",
+        type=str,
+        required=False,
+        help="Path to a JSON file containing splits; if not given, every 8 images will be test images",
+    )
+    parser.add_argument(
+        "--no_run_nerfstudio",
+        action="store_true",
+        help="If given, the script will generate Nerfstudio input files but not run Nerfstudio",
+    )
+    parser.add_argument(
+        "--method",
+        type=str,
+        default="nerfacto",
+        choices=["nerfacto", "splatfacto"],
+        help="Method to use for fitting NeRF",
+    )
+    parser.add_argument(
+        "--camera_optimizer",
+        type=str,
+        default="off",
+        choices=["off", "SO3xR3", "SE3"],
+        help="Type of camera optimizer to use, might improve quality but break the benchmark",
+    )
+    parser.add_argument(
+        "--max_resolution",
+        type=int,
+        default=640,
+        help="Maximum resolution of the images to use for the benchmark",
+    )
+    parser.add_argument(
+        "--run_ba",
+        type=str,
+        default=None,
+        help="If input is int, run bundle adjustment before runing the benchmark",
+    )
     args = parser.parse_args()
 
     run_benchmark(
@@ -35,5 +73,6 @@ if __name__ == '__main__':
         dry_run=args.no_run_nerfstudio,
         method=args.method,
         max_resolution=args.max_resolution,
-        camera_optimizer=args.camera_optimizer
+        camera_optimizer=args.camera_optimizer,
+        run_ba=args.run_ba,
     )

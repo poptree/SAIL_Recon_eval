@@ -66,9 +66,9 @@ namespace dsacstar
 	 * @return Loss.
 	 */
 	double loss(
-		const dsacstar::trans_t& trans1, 
-		const dsacstar::trans_t& trans2, 
-		double wRot = 1.0, 
+		const dsacstar::trans_t& trans1,
+		const dsacstar::trans_t& trans2,
+		double wRot = 1.0,
 		double wTrans = 1.0,
 		double cut = 100)
 	{
@@ -90,11 +90,11 @@ namespace dsacstar
 	 * @param gt Ground truth pose (6 DoF).
 	 * @param wRot Weight of rotation error.
 	 * @param wTrans Weight of translation error.
-	 * @param cut Apply soft clamping after this value.	 
+	 * @param cut Apply soft clamping after this value.
 	 * @return 1x6 Jacobean.
 	 */
 	cv::Mat_<double> dLoss(
-		const dsacstar::pose_t& est, 
+		const dsacstar::pose_t& est,
 		const dsacstar::pose_t& gt,
 		double wRot = 1.0,
 		double wTrans = 1.0,
@@ -126,7 +126,7 @@ namespace dsacstar
 	    double tErr = cv::norm(invT1 - invT2);
 
 	    cv::Mat_<double> jacobean = cv::Mat_<double>::zeros(1, 6);
-	    
+
 	    // clamped loss, return zero gradient if loss is bigger than threshold
 	    double loss = wRot * rotErr + wTrans * tErr;
 	    bool cutLoss = false;
@@ -143,8 +143,8 @@ namespace dsacstar
 
 	    if((tErr + rotErr) < EPS)
 	        return jacobean;
-		
-	  	
+
+
 	    // return gradient of translational error
 	    cv::Mat_<double> dDist_dInvT1(1, 3);
 	    for(unsigned i = 0; i < 3; i++)
@@ -200,7 +200,7 @@ namespace dsacstar
 	    cv::Mat_<double> dAngle = (180 / CV_PI * -1 / sqrt(3 - trace * trace + 2 * trace)) * dTrace * dRotDiff * dRod;
 
 	    jacobean.colRange(0, 3) += dAngle * wRot;
-		
+
 		if(cutLoss)
 			jacobean *= 0.5 / loss;
 

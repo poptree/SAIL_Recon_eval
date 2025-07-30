@@ -1,4 +1,5 @@
 import os
+
 import numpy as np
 from scipy.spatial.transform import Rotation as Rotation
 
@@ -12,7 +13,8 @@ def mkdir(directory):
 def dlheidata(doi, filename):
     """Download and unpack data from heiData host."""
     os.system(
-        f"wget https://heidata.uni-heidelberg.de/api/access/datafile/:persistentId?persistentId=doi:{doi} -O {filename}")
+        f"wget https://heidata.uni-heidelberg.de/api/access/datafile/:persistentId?persistentId=doi:{doi} -O {filename}"
+    )
     os.system(f"tar -xvzf {filename}")
     os.system(f"rm {filename}")
 
@@ -45,7 +47,6 @@ def read_pose_data(file_name):
     # create a dict from the poses with file name as key
     pose_dict = {}
     for pose_string in pose_data:
-
         pose_string = pose_string.split()
         file_name = pose_string[0]
 
@@ -75,27 +76,59 @@ def write_cam_pose(file_path, cam_pose):
     """
     Writes 4x4 camera pose to a human readable text file.
     """
-    with open(file_path, 'w') as f:
-        f.write(str(float(cam_pose[0, 0])) + ' ' + str(float(cam_pose[0, 1])) + ' ' + str(
-            float(cam_pose[0, 2])) + ' ' + str(float(cam_pose[0, 3])) + '\n')
-        f.write(str(float(cam_pose[1, 0])) + ' ' + str(float(cam_pose[1, 1])) + ' ' + str(
-            float(cam_pose[1, 2])) + ' ' + str(float(cam_pose[1, 3])) + '\n')
-        f.write(str(float(cam_pose[2, 0])) + ' ' + str(float(cam_pose[2, 1])) + ' ' + str(
-            float(cam_pose[2, 2])) + ' ' + str(float(cam_pose[2, 3])) + '\n')
-        f.write(str(float(cam_pose[3, 0])) + ' ' + str(float(cam_pose[3, 1])) + ' ' + str(
-            float(cam_pose[3, 2])) + ' ' + str(float(cam_pose[3, 3])) + '\n')
+    with open(file_path, "w") as f:
+        f.write(
+            str(float(cam_pose[0, 0]))
+            + " "
+            + str(float(cam_pose[0, 1]))
+            + " "
+            + str(float(cam_pose[0, 2]))
+            + " "
+            + str(float(cam_pose[0, 3]))
+            + "\n"
+        )
+        f.write(
+            str(float(cam_pose[1, 0]))
+            + " "
+            + str(float(cam_pose[1, 1]))
+            + " "
+            + str(float(cam_pose[1, 2]))
+            + " "
+            + str(float(cam_pose[1, 3]))
+            + "\n"
+        )
+        f.write(
+            str(float(cam_pose[2, 0]))
+            + " "
+            + str(float(cam_pose[2, 1]))
+            + " "
+            + str(float(cam_pose[2, 2]))
+            + " "
+            + str(float(cam_pose[2, 3]))
+            + "\n"
+        )
+        f.write(
+            str(float(cam_pose[3, 0]))
+            + " "
+            + str(float(cam_pose[3, 1]))
+            + " "
+            + str(float(cam_pose[3, 2]))
+            + " "
+            + str(float(cam_pose[3, 3]))
+            + "\n"
+        )
 
 
 def write_focal_length(file_path, focal_length):
     """
     Write the focal length to a human readable text file.
     """
-    with open(file_path, 'w') as f:
+    with open(file_path, "w") as f:
         f.write(str(focal_length))
 
 
 def clone_external_pose_files():
-    '''
+    """
     Clone repository containing SfM pose files for 7Scenes and 12Scenes.
 
     From paper:
@@ -104,11 +137,13 @@ def clone_external_pose_files():
     ICCV 2021
 
     @return folder name of the repo
-    '''
+    """
     repo_url = "https://github.com/tsattler/visloc_pseudo_gt_limitations.git"
     repo_folder = os.path.splitext(os.path.basename(repo_url))[0]
 
     if not os.path.exists(repo_folder):
-        os.system('git clone https://github.com/tsattler/visloc_pseudo_gt_limitations.git')
+        os.system(
+            "git clone https://github.com/tsattler/visloc_pseudo_gt_limitations.git"
+        )
 
-    return os.path.join(repo_folder, 'pgt', 'sfm')
+    return os.path.join(repo_folder, "pgt", "sfm")

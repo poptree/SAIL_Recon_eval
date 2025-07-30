@@ -1,44 +1,53 @@
 # Copyright © Niantic, Inc. 2022.
 
-import os
 import logging
-import numpy as np
-import trimesh
-import pyrender
-from PIL import Image, ImageOps
-from scipy.linalg import svd
-from matplotlib.colors import LinearSegmentedColormap
-import torch
-from torch.cuda.amp import autocast
-from skimage import io, color
-from skimage.transform import resize
-from ace_util import get_pixel_grid, to_homogeneous
+import os
 from bisect import insort
 
-logging.getLogger('trimesh').setLevel(level=logging.WARNING)
+import numpy as np
+import pyrender
+import torch
+import trimesh
+from matplotlib.colors import LinearSegmentedColormap
+from PIL import Image, ImageOps
+from scipy.linalg import svd
+from skimage import color, io
+from skimage.transform import resize
+from torch.cuda.amp import autocast
+
+from ace_util import get_pixel_grid, to_homogeneous
+
+logging.getLogger("trimesh").setLevel(level=logging.WARNING)
 _logger = logging.getLogger(__name__)
 
 THICKNESS = 0.005  # controls how thick the frustum's 'bars' are
 
 # define camera frustum geometry
-origin_frustum_verts = np.array([
-    (0., 0., 0.),
-    (0.375, -0.375, -1.0),
-    (0.375, 0.375, -1.0),
-    (-0.375, 0.375, -1.0),
-    (-0.375, -0.375, -1.0),
-])
+origin_frustum_verts = np.array(
+    [
+        (0.0, 0.0, 0.0),
+        (0.375, -0.375, -1.0),
+        (0.375, 0.375, -1.0),
+        (-0.375, 0.375, -1.0),
+        (-0.375, -0.375, -1.0),
+    ]
+)
 
-frustum_edges = np.array([
-    (1, 2),
-    (1, 3),
-    (1, 4),
-    (1, 5),
-    (2, 3),
-    (3, 4),
-    (4, 5),
-    (5, 2),
-]) - 1
+frustum_edges = (
+    np.array(
+        [
+            (1, 2),
+            (1, 3),
+            (1, 4),
+            (1, 5),
+            (2, 3),
+            (3, 4),
+            (4, 5),
+            (5, 2),
+        ]
+    )
+    - 1
+)
 
 
 def normalise_vector(vect):
@@ -48,7 +57,7 @@ def normalise_vector(vect):
     @param vect: Vector to be normalised.
     @return: Normalised vector.
     """
-    length = np.sqrt((vect ** 2).sum())
+    length = np.sqrt((vect**2).sum())
     return vect / length
 
 
@@ -67,7 +76,9 @@ def cuboid_from_line(line_start, line_end, color=(255, 0, 255)):
     for node in (line_start, line_end):
         for x_offset in (-1, 1):
             for y_offset in (-1, 1):
-                vert = node + THICKNESS * (perpendicular_y * y_offset + perpendicular_x * x_offset)
+                vert = node + THICKNESS * (
+                    perpendicular_y * y_offset + perpendicular_x * x_offset
+                )
                 vertices.append(vert)
 
     faces = [
@@ -87,28 +98,32 @@ def cuboid_from_line(line_start, line_end, color=(255, 0, 255)):
     return mesh
 
 
-def generate_frustum_marker(pose, color=(255, 0, 255), size=1.):
-    frustum_vertices = np.array([
-        [0., 0., 0., 1.],
-        [1., 1., 3., 1.],
-        [-1., 1., 3., 1.],
-        [-1., -1., 3., 1.],
-        [1., -1., 3., 1.]
-    ]).T
+def generate_frustum_marker(pose, color=(255, 0, 255), size=1.0):
+    frustum_vertices = np.array(
+        [
+            [0.0, 0.0, 0.0, 1.0],
+            [1.0, 1.0, 3.0, 1.0],
+            [-1.0, 1.0, 3.0, 1.0],
+            [-1.0, -1.0, 3.0, 1.0],
+            [1.0, -1.0, 3.0, 1.0],
+        ]
+    ).T
 
     frustum_vertices[:3] *= size
     frustum_vertices[2, :] *= -1  # OpenCV to OpenGL
     frustum_vertices = pose @ frustum_vertices
     frustum_vertices = frustum_vertices[:3].T
 
-    frustum_faces = np.array([
-        [0, 4, 1],
-        [0, 1, 2],
-        [0, 2, 3],
-        [0, 3, 4],
-        [4, 2, 1],
-        [4, 3, 2],
-    ])
+    frustum_faces = np.array(
+        [
+            [0, 4, 1],
+            [0, 1, 2],
+            [0, 2, 3],
+            [0, 3, 4],
+            [4, 2, 1],
+            [4, 3, 2],
+        ]
+    )
 
     mesh = trimesh.Trimesh(vertices=frustum_vertices, faces=frustum_faces)
 
@@ -118,13 +133,8 @@ def generate_frustum_marker(pose, color=(255, 0, 255), size=1.):
     return mesh
 
 
-def get_image_box(
-        image_path,
-        frustum_pose,
-        cam_marker_size=1.0,
-        flip=False
-):
-    """ Gets a textured mesh of an image.
+def get_image_box(image_path, frustum_pose, cam_marker_size=1.0, flip=False):
+    """Gets a textured mesh of an image.
 
     @param image_path: File path of the image to be rendered.
     @param frustum_pose: 4x4 camera pose, OpenGL convention
@@ -188,14 +198,17 @@ def get_image_box(
         face_normals=face_normals,
         visual=texture,
         validate=True,
-        process=False
+        process=False,
     )
 
     # from simple recon code
     def transform_trimesh(mesh, transform):
-        """ Applies a transform to a trimesh. """
+        """Applies a transform to a trimesh."""
         np_vertices = np.array(mesh.vertices)
-        np_vertices = (transform @ np.concatenate([np_vertices, np.ones((np_vertices.shape[0], 1))], 1).T).T
+        np_vertices = (
+            transform
+            @ np.concatenate([np_vertices, np.ones((np_vertices.shape[0], 1))], 1).T
+        ).T
         np_vertices = np_vertices / np_vertices[:, 3][:, None]
         mesh.vertices[:, 0] = np_vertices[:, 0]
         mesh.vertices[:, 1] = np_vertices[:, 1]
@@ -217,14 +230,17 @@ def generate_frustum_at_position(rotation, translation, color, size, aspect_rati
     frustum_verts = origin_frustum_verts.copy()
     frustum_verts[:, 0] *= aspect_ratio
 
-    transformed_frustum_verts = \
+    transformed_frustum_verts = (
         size * rotation.dot(frustum_verts.T).T + translation[None, :]
+    )
 
     cuboids = []
     for edge in frustum_edges:
-        line_cuboid = cuboid_from_line(line_start=transformed_frustum_verts[edge[0]],
-                                       line_end=transformed_frustum_verts[edge[1]],
-                                       color=color)
+        line_cuboid = cuboid_from_line(
+            line_start=transformed_frustum_verts[edge[0]],
+            line_end=transformed_frustum_verts[edge[1]],
+            color=color,
+        )
         cuboids.append(line_cuboid)
 
     return trimesh.util.concatenate(cuboids)
@@ -237,10 +253,7 @@ class LazyCamera:
     Also zooms out to display the whole scene.
     """
 
-    def __init__(self,
-                 camera_buffer_size=40,
-                 backwards_offset=4,
-                 camera_buffer=None):
+    def __init__(self, camera_buffer_size=40, backwards_offset=4, camera_buffer=None):
         """Constructor.
 
         Parameters:
@@ -274,7 +287,9 @@ class LazyCamera:
         Z[-1, -1] = np.sign(np.linalg.det(U @ Vt))
         R = U @ Z @ Vt
 
-        T = np.eye(4)  # recreate the matrix to make sure that the forth row is [0 0 0 1]
+        T = np.eye(
+            4
+        )  # recreate the matrix to make sure that the forth row is [0 0 0 1]
         T[:3, :3] = R
         T[:3, 3] = t
 
@@ -398,15 +413,16 @@ def get_retro_colors():
     @return: Color lookup table, 256x3
     """
 
-    cdict = {'red': [
-        [0.0, 0.073, 0.073],
-        [0.4, 0.325, 0.325],
-        [0.7, 0.286, 0.286],
-        [0.85, 0.266, 0.266],
-        [0.95, 0, 0],
-        [1, 1, 1],
-    ],
-        'green': [
+    cdict = {
+        "red": [
+            [0.0, 0.073, 0.073],
+            [0.4, 0.325, 0.325],
+            [0.7, 0.286, 0.286],
+            [0.85, 0.266, 0.266],
+            [0.95, 0, 0],
+            [1, 1, 1],
+        ],
+        "green": [
             [0.0, 0.0, 0.0],
             [0.4, 0.058, 0.058],
             [0.7, 0.470, 0.470],
@@ -414,16 +430,17 @@ def get_retro_colors():
             [0.95, 1, 1],
             [1, 1, 1],
         ],
-        'blue': [
+        "blue": [
             [0.0, 0.057, 0.057],
             [0.4, 0.223, 0.223],
             [0.7, 0.752, 0.752],
             [0.85, 0.988, 0.988],
             [0.95, 1, 1],
             [1, 1, 1],
-        ]}
+        ],
+    }
 
-    retroColorMap = LinearSegmentedColormap('retroColors', segmentdata=cdict, N=256)
+    retroColorMap = LinearSegmentedColormap("retroColors", segmentdata=cdict, N=256)
 
     return retroColorMap(np.linspace(0, 1, 257))[1:, :3]
 
@@ -465,10 +482,8 @@ def get_point_cloud_from_network(network, data_loader, filter_depth, dense_cloud
     pc_clr = []
 
     with torch.no_grad():
-
         # iterate over mapping sequence
         for image, _, gt_inv_pose, _, K, _, _, file, _ in data_loader:
-
             # predict scene coordinate
             image = image.cuda(non_blocking=True)
             gt_inv_pose = gt_inv_pose.cuda(non_blocking=True)
@@ -484,7 +499,9 @@ def get_point_cloud_from_network(network, data_loader, filter_depth, dense_cloud
             # scene coordinate to camera coordinates
             pred_scene_coords_B3HW = scene_coords.float()
             pred_scene_coords_B4N = to_homogeneous(pred_scene_coords_B3HW.flatten(2))
-            pred_cam_coords_B3N = torch.matmul(gt_inv_pose[:, :3], pred_scene_coords_B4N)
+            pred_cam_coords_B3N = torch.matmul(
+                gt_inv_pose[:, :3], pred_scene_coords_B4N
+            )
 
             # project scene coordinates
             pred_px_B3N = torch.matmul(K, pred_cam_coords_B3N)
@@ -496,15 +513,25 @@ def get_point_cloud_from_network(network, data_loader, filter_depth, dense_cloud
             pixel_positions_2N = pixel_positions_2HW.view(2, -1)
 
             reprojection_error_2N = pred_px_B2N.squeeze() - pixel_positions_2N.cuda()
-            reprojection_error_1N = torch.norm(reprojection_error_2N, dim=0, keepdim=True, p=1)
+            reprojection_error_1N = torch.norm(
+                reprojection_error_2N, dim=0, keepdim=True, p=1
+            )
 
             # filter based on gradient of scene coordinates
-            grad_x_BHW = torch.linalg.norm(pred_scene_coords_B3HW[:, :, :, 1:] - pred_scene_coords_B3HW[:, :, :, :-1],
-                                           dim=1)
-            grad_x_BHW = torch.nn.functional.pad(grad_x_BHW, (1, 0), mode='reflect')
-            grad_y_BHW = torch.linalg.norm(pred_scene_coords_B3HW[:, :, 1:, :] - pred_scene_coords_B3HW[:, :, :-1, :],
-                                           dim=1)
-            grad_y_BHW = torch.nn.functional.pad(grad_y_BHW, (0, 0, 1, 0), mode='reflect')
+            grad_x_BHW = torch.linalg.norm(
+                pred_scene_coords_B3HW[:, :, :, 1:]
+                - pred_scene_coords_B3HW[:, :, :, :-1],
+                dim=1,
+            )
+            grad_x_BHW = torch.nn.functional.pad(grad_x_BHW, (1, 0), mode="reflect")
+            grad_y_BHW = torch.linalg.norm(
+                pred_scene_coords_B3HW[:, :, 1:, :]
+                - pred_scene_coords_B3HW[:, :, :-1, :],
+                dim=1,
+            )
+            grad_y_BHW = torch.nn.functional.pad(
+                grad_y_BHW, (0, 0, 1, 0), mode="reflect"
+            )
 
             grad_BHW = torch.max(grad_x_BHW, grad_y_BHW)
             grad_1N = grad_BHW.view(B, -1)
@@ -533,17 +560,27 @@ def get_point_cloud_from_network(network, data_loader, filter_depth, dense_cloud
 
             if num_valid_points < pc_points_per_image_min:
                 # take min points with lowest reprojection error
-                reprojection_error_within_range_and_smooth_1N = reprojection_error_1N.squeeze()[sc_grad_and_depth_mask]
+                reprojection_error_within_range_and_smooth_1N = (
+                    reprojection_error_1N.squeeze()[sc_grad_and_depth_mask]
+                )
 
-                sorted_errors, _ = torch.sort(reprojection_error_within_range_and_smooth_1N)
-                relaxed_filter_repro_error = sorted_errors[min(pc_points_per_image_min, sorted_errors.shape[0] - 1)]
+                sorted_errors, _ = torch.sort(
+                    reprojection_error_within_range_and_smooth_1N
+                )
+                relaxed_filter_repro_error = sorted_errors[
+                    min(pc_points_per_image_min, sorted_errors.shape[0] - 1)
+                ]
 
-                sc_err_mask = reprojection_error_1N.squeeze() < relaxed_filter_repro_error
+                sc_err_mask = (
+                    reprojection_error_1N.squeeze() < relaxed_filter_repro_error
+                )
                 sc_err_mask = torch.logical_and(sc_grad_and_depth_mask, sc_err_mask)
             elif num_valid_points > pc_points_per_image_max:
                 # sub-sample points
                 keep_ratio = pc_points_per_image_max / num_valid_points
-                sub_sample_mask = torch.randperm(num_valid_points) < int(keep_ratio * num_valid_points)
+                sub_sample_mask = torch.randperm(num_valid_points) < int(
+                    keep_ratio * num_valid_points
+                )
                 sc_err_mask_subsampled = sc_err_mask.clone()
                 sc_err_mask_subsampled[sc_err_mask] = sub_sample_mask.cuda()
                 sc_err_mask = sc_err_mask_subsampled
@@ -555,7 +592,7 @@ def get_point_cloud_from_network(network, data_loader, filter_depth, dense_cloud
                 rgb = color.gray2rgb(rgb)
 
             # align RGB values with scene coordinate prediction
-            rgb = rgb.astype('float64')
+            rgb = rgb.astype("float64")
             # firstly, resize image to network input resolution
             rgb = resize(rgb, image.shape[2:])
             # secondly, sub-sampling to network output resolution
@@ -614,9 +651,7 @@ def get_rendering_target_path(target_base_path, map_file_name):
 class CameraTrajectoryBuffer:
     """Incrementally builds a camera trajectory mesh."""
 
-    def __init__(self,
-                 frustum_skip,
-                 frustum_scale):
+    def __init__(self, frustum_skip, frustum_scale):
         """
         Constructor.
 
@@ -628,16 +663,28 @@ class CameraTrajectoryBuffer:
         self.frustum_skip = frustum_skip
         self.frustum_scale = frustum_scale
 
-        self.trajectory = []  # holds line segments to render the camera path of the mapping sequence
+        self.trajectory = (
+            []
+        )  # holds line segments to render the camera path of the mapping sequence
         self.frustums = []  # holds frustum geometry for the trajectory
-        self.frustum_images = []  # frustum images need to be kept extra due to image texture
+        self.frustum_images = (
+            []
+        )  # frustum images need to be kept extra due to image texture
 
-        self.trajectory_previous = None  # holds last camera position to skip segments if camera jumps
-        self.frustum_positions = []  # holds accepted frustum placement positions to sparsify them
-        self.trajectory_distances = []  # holds all previous distances in the trajectory to detect jumps
+        self.trajectory_previous = (
+            None  # holds last camera position to skip segments if camera jumps
+        )
+        self.frustum_positions = (
+            []
+        )  # holds accepted frustum placement positions to sparsify them
+        self.trajectory_distances = (
+            []
+        )  # holds all previous distances in the trajectory to detect jumps
 
         self.trajectory_color = (255, 255, 255)
-        self.aspect_ratio_buffer = 4 / 3  # default aspect ratio, overwritten as soon as a acutal image is loaded
+        self.aspect_ratio_buffer = (
+            4 / 3
+        )  # default aspect ratio, overwritten as soon as a acutal image is loaded
 
     def grow_camera_path(self, new_camera):
         """
@@ -652,28 +699,35 @@ class CameraTrajectoryBuffer:
 
         # draw line from previous position to current position
         if self.trajectory_previous is not None:
-
             current_dist = np.linalg.norm(current_pos - self.trajectory_previous)
             # keep sorted list of previous camera distance
             insort(self.trajectory_distances, current_dist)
             # detect jump if current dist is more than X times the median
-            line_skip = 10 * self.trajectory_distances[len(self.trajectory_distances) // 2]
+            line_skip = (
+                10 * self.trajectory_distances[len(self.trajectory_distances) // 2]
+            )
 
             if 0.0001 < current_dist < line_skip:
-                line_cuboid = cuboid_from_line(line_start=self.trajectory_previous,
-                                               line_end=current_pos,
-                                               color=self.trajectory_color)
+                line_cuboid = cuboid_from_line(
+                    line_start=self.trajectory_previous,
+                    line_end=current_pos,
+                    color=self.trajectory_color,
+                )
 
                 self.trajectory.append(line_cuboid)
             else:
                 if current_dist > line_skip:
-                    _logger.info(f"Detected jump: camera dist={current_dist:.3f}, threshold={line_skip:.3f}, "
-                                 f"threshold estimated from {len(self.trajectory_distances)} estimates.")
+                    _logger.info(
+                        f"Detected jump: camera dist={current_dist:.3f}, threshold={line_skip:.3f}, "
+                        f"threshold estimated from {len(self.trajectory_distances)} estimates."
+                    )
 
         # update previous position for next iteration
         self.trajectory_previous = current_pos
 
-    def add_position_marker(self, marker_pose, marker_color, marker_extent=0.015, frustum_maker=False):
+    def add_position_marker(
+        self, marker_pose, marker_color, marker_extent=0.015, frustum_maker=False
+    ):
         """
         Adds a cube to the trajectory mesh to signify a singular camera position.
 
@@ -682,11 +736,14 @@ class CameraTrajectoryBuffer:
         @param marker_extent: size of the marker, marker is a cube of this side length
         """
         if frustum_maker:
-            current_pos_marker = generate_frustum_marker(marker_pose, marker_color, marker_extent)
+            current_pos_marker = generate_frustum_marker(
+                marker_pose, marker_color, marker_extent
+            )
         else:
             current_pos_marker = trimesh.primitives.Box(
                 extents=(marker_extent, marker_extent, marker_extent),
-                transform=marker_pose)
+                transform=marker_pose,
+            )
             for c in (0, 1, 2):
                 current_pos_marker.visual.vertex_colors[:, c] = marker_color[c]
 
@@ -700,12 +757,19 @@ class CameraTrajectoryBuffer:
         @return: distance to the closest frustum in the trajectory
         """
         if len(self.frustum_positions) == 0:
-            return self.frustum_skip + 1  # hack, return a distance that always accepts the new camera
+            return (
+                self.frustum_skip + 1
+            )  # hack, return a distance that always accepts the new camera
         else:
-            distances = [np.linalg.norm(pos - new_camera[:3, 3]) for pos in self.frustum_positions]
+            distances = [
+                np.linalg.norm(pos - new_camera[:3, 3])
+                for pos in self.frustum_positions
+            ]
             return min(distances)
 
-    def add_camera_frustum(self, camera, image_file=None, sparse=True, frustum_color=None):
+    def add_camera_frustum(
+        self, camera, image_file=None, sparse=True, frustum_color=None
+    ):
         """
         Add a camera frustum object to the trajectory, minding distance to existing frustums.
 
@@ -720,22 +784,27 @@ class CameraTrajectoryBuffer:
             frustum_color = self.trajectory_color
 
         # place camera frustum all X centimeters (or overwrite via sparse flag)
-        if (sparse == False) or (self._get_closest_frustum_distance(new_camera) > self.frustum_skip):
-
+        if (sparse == False) or (
+            self._get_closest_frustum_distance(new_camera) > self.frustum_skip
+        ):
             if image_file is not None:
-                image_mesh, self.aspect_ratio_buffer = get_image_box(image_path=image_file,
-                                                                     frustum_pose=new_camera,
-                                                                     flip=True,
-                                                                     cam_marker_size=self.frustum_scale)
+                image_mesh, self.aspect_ratio_buffer = get_image_box(
+                    image_path=image_file,
+                    frustum_pose=new_camera,
+                    flip=True,
+                    cam_marker_size=self.frustum_scale,
+                )
 
                 image_mesh = pyrender.Mesh.from_trimesh(image_mesh)
                 self.frustum_images.append(image_mesh)
 
-            frustum = generate_frustum_at_position(rotation=new_camera[:3, :3],
-                                                   translation=new_camera[:3, 3],
-                                                   color=frustum_color,
-                                                   size=self.frustum_scale,
-                                                   aspect_ratio=self.aspect_ratio_buffer)
+            frustum = generate_frustum_at_position(
+                rotation=new_camera[:3, :3],
+                translation=new_camera[:3, 3],
+                color=frustum_color,
+                size=self.frustum_scale,
+                aspect_ratio=self.aspect_ratio_buffer,
+            )
             self.frustums.append(frustum)
             self.frustum_positions.append(new_camera[:3, 3])
 

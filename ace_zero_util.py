@@ -1,12 +1,14 @@
-import sys
-import subprocess
 import logging
+import subprocess
+import sys
+
 import numpy as np
 
 _logger = logging.getLogger(__name__)
 
 TRAINING_EXE = "./train_ace.py"
 REGISTER_EXE = "./register_mapping.py"
+
 
 def run_cmd(cmd, raise_on_error=True, verbose=True):
     """
@@ -29,7 +31,9 @@ def run_cmd(cmd, raise_on_error=True, verbose=True):
     cmd_str = [str(c) for c in cmd]
 
     # Start a subprocess with the command
-    proc = subprocess.Popen(cmd_str, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.Popen(
+        cmd_str, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    )
 
     # Continuously read and print the output of the subprocess to stdout
     while True:
@@ -83,27 +87,48 @@ def get_refit_mapping_cmd(rgb_files, iteration_id, out_dir, opt):
 
     # add general parameters to mapping command
     mapping_cmd += [
-        "--repro_loss_type", "dyntanh",
-        "--render_target_path", get_render_path(out_dir),
-        "--render_marker_size", opt.render_marker_size,
-        "--refinement_ortho", opt.refinement_ortho,
-        "--ace_pose_file_conf_threshold", opt.registration_confidence,
-        "--render_flipped_portrait", opt.render_flipped_portrait,
-        "--pose_refinement_wait", opt.final_refit_posewait,
-        "--image_resolution", opt.image_resolution,
-        "--pose_refinement_lr", opt.pose_refinement_lr,
-        "--num_head_blocks", opt.num_head_blocks,
-        "--repro_loss_hard_clamp", opt.repro_loss_hard_clamp,
-        "--repro_loss_soft_clamp", opt.repro_loss_soft_clamp,
-        "--iterations_output", opt.iterations_output,
-        "--max_dataset_passes", opt.max_dataset_passes,
-        "--learning_rate_schedule", "circle",
-        "--learning_rate_max", 0.005,
-        "--learning_rate_cooldown_iterations", opt.cooldown_iterations,
-        "--learning_rate_cooldown_trigger_percent_threshold", opt.cooldown_threshold,
-        "--aug_rotation", opt.aug_rotation,
-        "--iterations", opt.refit_iterations,
-        "--training_buffer_cpu", opt.training_buffer_cpu,
+        "--repro_loss_type",
+        "dyntanh",
+        "--render_target_path",
+        get_render_path(out_dir),
+        "--render_marker_size",
+        opt.render_marker_size,
+        "--refinement_ortho",
+        opt.refinement_ortho,
+        "--ace_pose_file_conf_threshold",
+        opt.registration_confidence,
+        "--render_flipped_portrait",
+        opt.render_flipped_portrait,
+        "--pose_refinement_wait",
+        opt.final_refit_posewait,
+        "--image_resolution",
+        opt.image_resolution,
+        "--pose_refinement_lr",
+        opt.pose_refinement_lr,
+        "--num_head_blocks",
+        opt.num_head_blocks,
+        "--repro_loss_hard_clamp",
+        opt.repro_loss_hard_clamp,
+        "--repro_loss_soft_clamp",
+        opt.repro_loss_soft_clamp,
+        "--iterations_output",
+        opt.iterations_output,
+        "--max_dataset_passes",
+        opt.max_dataset_passes,
+        "--learning_rate_schedule",
+        "circle",
+        "--learning_rate_max",
+        0.005,
+        "--learning_rate_cooldown_iterations",
+        opt.cooldown_iterations,
+        "--learning_rate_cooldown_trigger_percent_threshold",
+        opt.cooldown_threshold,
+        "--aug_rotation",
+        opt.aug_rotation,
+        "--iterations",
+        opt.refit_iterations,
+        "--training_buffer_cpu",
+        opt.training_buffer_cpu,
     ]
 
     return mapping_cmd
@@ -132,26 +157,46 @@ def get_base_mapping_cmd(rgb_files, iteration_id, out_dir, opt):
 
     # add general parameters to mapping command
     mapping_cmd += [
-        "--repro_loss_type", opt.repro_loss_type,
-        "--render_target_path", get_render_path(out_dir),
-        "--render_marker_size", opt.render_marker_size,
-        "--refinement_ortho", opt.refinement_ortho,
-        "--ace_pose_file_conf_threshold", opt.registration_confidence,
-        "--render_flipped_portrait", opt.render_flipped_portrait,
-        "--pose_refinement_wait", opt.pose_refinement_wait,
-        "--image_resolution", opt.image_resolution,
-        "--pose_refinement_lr", opt.pose_refinement_lr,
-        "--num_head_blocks", opt.num_head_blocks,
-        "--repro_loss_hard_clamp", opt.repro_loss_hard_clamp,
-        "--repro_loss_soft_clamp", opt.repro_loss_soft_clamp,
-        "--iterations_output", opt.iterations_output,
-        "--max_dataset_passes", opt.max_dataset_passes,
-        "--learning_rate_schedule", opt.learning_rate_schedule,
-        "--learning_rate_max", opt.learning_rate_max,
-        "--learning_rate_cooldown_iterations", opt.cooldown_iterations,
-        "--learning_rate_cooldown_trigger_percent_threshold", opt.cooldown_threshold,
-        "--aug_rotation", opt.aug_rotation,
-        "--training_buffer_cpu", opt.training_buffer_cpu,
+        "--repro_loss_type",
+        opt.repro_loss_type,
+        "--render_target_path",
+        get_render_path(out_dir),
+        "--render_marker_size",
+        opt.render_marker_size,
+        "--refinement_ortho",
+        opt.refinement_ortho,
+        "--ace_pose_file_conf_threshold",
+        opt.registration_confidence,
+        "--render_flipped_portrait",
+        opt.render_flipped_portrait,
+        "--pose_refinement_wait",
+        opt.pose_refinement_wait,
+        "--image_resolution",
+        opt.image_resolution,
+        "--pose_refinement_lr",
+        opt.pose_refinement_lr,
+        "--num_head_blocks",
+        opt.num_head_blocks,
+        "--repro_loss_hard_clamp",
+        opt.repro_loss_hard_clamp,
+        "--repro_loss_soft_clamp",
+        opt.repro_loss_soft_clamp,
+        "--iterations_output",
+        opt.iterations_output,
+        "--max_dataset_passes",
+        opt.max_dataset_passes,
+        "--learning_rate_schedule",
+        opt.learning_rate_schedule,
+        "--learning_rate_max",
+        opt.learning_rate_max,
+        "--learning_rate_cooldown_iterations",
+        opt.cooldown_iterations,
+        "--learning_rate_cooldown_trigger_percent_threshold",
+        opt.cooldown_threshold,
+        "--aug_rotation",
+        opt.aug_rotation,
+        "--training_buffer_cpu",
+        opt.training_buffer_cpu,
     ]
 
     return mapping_cmd
@@ -171,7 +216,7 @@ def get_registration_rates(pose_file, thresholds):
     """
 
     # Open the pose file and read its contents
-    with open(pose_file, 'r') as f:
+    with open(pose_file, "r") as f:
         data = f.readlines()
 
     # Extract the confidence values from the pose file
@@ -222,9 +267,12 @@ def map_seed(args):
 
     use_heuristic_focal_length = opt.use_external_focal_length < 0
     mapping_cmd += [
-        "--use_pose_seed", seed,
-        "--iterations", opt.seed_iterations,
-        "--use_heuristic_focal_length", use_heuristic_focal_length,
+        "--use_pose_seed",
+        seed,
+        "--iterations",
+        opt.seed_iterations,
+        "--use_heuristic_focal_length",
+        use_heuristic_focal_length,
     ]
     if not use_heuristic_focal_length:
         mapping_cmd += ["--use_external_focal_length", opt.use_external_focal_length]
@@ -243,26 +291,42 @@ def map_seed(args):
         REGISTER_EXE,
         rgb_files,
         out_dir / f"{iteration_id}.pt",
-        "--render_visualization", False, # no visualization for scoring
-        "--render_target_path", get_render_path(out_dir),
-        "--render_marker_size", opt.render_marker_size,
-        "--render_flipped_portrait", opt.render_flipped_portrait,
-        "--session", f"{iteration_id}_fastcheck",
-        "--confidence_threshold", opt.registration_confidence,
-        "--use_external_focal_length", opt.use_external_focal_length,
-        "--hypotheses", opt.ransac_iterations,
-        "--threshold", opt.ransac_threshold,
-        "--max_estimates", 1000, # scoring using a subset of images for large datasets
-        "--image_resolution", opt.image_resolution,
-        "--num_data_workers", num_seed_workers,
-        "--hypotheses_max_tries", 16
+        "--render_visualization",
+        False,  # no visualization for scoring
+        "--render_target_path",
+        get_render_path(out_dir),
+        "--render_marker_size",
+        opt.render_marker_size,
+        "--render_flipped_portrait",
+        opt.render_flipped_portrait,
+        "--session",
+        f"{iteration_id}_fastcheck",
+        "--confidence_threshold",
+        opt.registration_confidence,
+        "--use_external_focal_length",
+        opt.use_external_focal_length,
+        "--hypotheses",
+        opt.ransac_iterations,
+        "--threshold",
+        opt.ransac_threshold,
+        "--max_estimates",
+        1000,  # scoring using a subset of images for large datasets
+        "--image_resolution",
+        opt.image_resolution,
+        "--num_data_workers",
+        num_seed_workers,
+        "--hypotheses_max_tries",
+        16,
     ]
     run_cmd(scoring_cmd, verbose=verbose)
 
     # check the number of registered mapping images
     registration_rate = get_registration_rates(
         pose_file=out_dir / f"poses_{iteration_id}_fastcheck.txt",
-        thresholds=[opt.registration_confidence])[0]
+        thresholds=[opt.registration_confidence],
+    )[0]
 
-    _logger.info(f"Seed successfully registered {registration_rate * 100:.1f}% of mapping images.")
+    _logger.info(
+        f"Seed successfully registered {registration_rate * 100:.1f}% of mapping images."
+    )
     return registration_rate

@@ -1,9 +1,10 @@
 import glob
+import logging
+
 import numpy as np
 import torch
-from scipy.spatial.transform import Rotation
-import logging
 import torchvision.transforms.functional as TF
+from scipy.spatial.transform import Rotation
 
 _logger = logging.getLogger(__name__)
 
@@ -85,7 +86,9 @@ def remove_invalid_poses(rgb_files, poses):
 
     for rgb_file, pose in zip(rgb_files, poses):
         if not check_pose(pose):
-            _logger.warning(f"Pose for {rgb_file} contains NaN or inf values, skipping.")
+            _logger.warning(
+                f"Pose for {rgb_file} contains NaN or inf values, skipping."
+            )
         else:
             valid_rgb_files.append(rgb_file)
             valid_poses.append(pose)
@@ -114,7 +117,7 @@ def load_dataset_ace(pose_file, confidence_threshold):
         - focal_lengths: The focal lengths.
     """
 
-    with open(pose_file, 'r') as f:
+    with open(pose_file, "r") as f:
         pose_file_data = f.readlines()
 
         rgb_files = []
@@ -122,10 +125,11 @@ def load_dataset_ace(pose_file, confidence_threshold):
         focal_lengths = []
 
         for pose_file_entry in pose_file_data:
-
             pose_file_tokens = pose_file_entry.split()
 
-            assert len(pose_file_tokens) == 10, f"Expected 10 tokens per line in pose file, got {len(pose_file_tokens)}"
+            assert (
+                len(pose_file_tokens) == 10
+            ), f"Expected 10 tokens per line in pose file, got {len(pose_file_tokens)}"
 
             # read confidence values and compare to threshold
             confidence = float(pose_file_tokens[-1])
@@ -179,9 +183,11 @@ def write_pose_to_pose_file(out_pose_file, rgb_file, pose, confidence, focal_len
     t_xyz = pose[:3, 3]
 
     # write to pose file
-    pose_str = f"{rgb_file} " \
-               f"{q_xyzw[3]} {q_xyzw[0]} {q_xyzw[1]} {q_xyzw[2]} " \
-               f"{t_xyz[0]} {t_xyz[1]} {t_xyz[2]} {focal_length} {confidence}\n"
+    pose_str = (
+        f"{rgb_file} "
+        f"{q_xyzw[3]} {q_xyzw[0]} {q_xyzw[1]} {q_xyzw[2]} "
+        f"{t_xyz[0]} {t_xyz[1]} {t_xyz[2]} {focal_length} {confidence}\n"
+    )
 
     out_pose_file.write(pose_str)
 
@@ -195,7 +201,9 @@ def get_depth_model(init=False):
     """
 
     # Warm up dependency in the torch hub cache.
-    torch.hub.help("intel-isl/MiDaS", "DPT_BEiT_L_384", force_reload=init, trust_repo="check")
+    torch.hub.help(
+        "intel-isl/MiDaS", "DPT_BEiT_L_384", force_reload=init, trust_repo="check"
+    )
     repo = "isl-org/ZoeDepth"
 
     # # Zoe_N
@@ -205,7 +213,9 @@ def get_depth_model(init=False):
     # model_zoe_k = torch.hub.load(repo, "ZoeD_K", pretrained=True, force_reload=init, trust_repo="check")
 
     # Zoe_NK (best performing model).
-    model_zoe_nk = torch.hub.load(repo, "ZoeD_NK", pretrained=True, force_reload=init, trust_repo="check")
+    model_zoe_nk = torch.hub.load(
+        repo, "ZoeD_NK", pretrained=True, force_reload=init, trust_repo="check"
+    )
     model_zoe_nk.eval().cuda()
     _logger.info(f"Loaded pretrained ZoeDepth model.")
 

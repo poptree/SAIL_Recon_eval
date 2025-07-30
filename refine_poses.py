@@ -2,12 +2,11 @@
 
 import logging
 
+import roma
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
-
-import roma
 
 _logger = logging.getLogger(__name__)
 
@@ -25,9 +24,11 @@ class PoseNetwork(nn.Module):
         self.head_channels = channels  # Hardcoded.
 
         # We may need a skip layer if the number of features output by the encoder is different.
-        self.head_skip = nn.Identity() if self.in_channels == self.head_channels else nn.Conv2d(self.in_channels,
-                                                                                                self.head_channels, 1,
-                                                                                                1, 0)
+        self.head_skip = (
+            nn.Identity()
+            if self.in_channels == self.head_channels
+            else nn.Conv2d(self.in_channels, self.head_channels, 1, 1, 0)
+        )
 
         self.conv1 = nn.Conv2d(self.in_channels, self.head_channels, 1, 1, 0)
         self.conv2 = nn.Conv2d(self.head_channels, self.head_channels, 1, 1, 0)
@@ -36,22 +37,29 @@ class PoseNetwork(nn.Module):
         self.res_blocks = []
 
         for block in range(num_head_blocks):
-            self.res_blocks.append((
-                nn.Conv2d(self.head_channels, self.head_channels, 1, 1, 0),
-                nn.Conv2d(self.head_channels, self.head_channels, 1, 1, 0),
-                nn.Conv2d(self.head_channels, self.head_channels, 1, 1, 0),
-            ))
+            self.res_blocks.append(
+                (
+                    nn.Conv2d(self.head_channels, self.head_channels, 1, 1, 0),
+                    nn.Conv2d(self.head_channels, self.head_channels, 1, 1, 0),
+                    nn.Conv2d(self.head_channels, self.head_channels, 1, 1, 0),
+                )
+            )
 
-            super(PoseNetwork, self).add_module(str(block) + 'c0', self.res_blocks[block][0])
-            super(PoseNetwork, self).add_module(str(block) + 'c1', self.res_blocks[block][1])
-            super(PoseNetwork, self).add_module(str(block) + 'c2', self.res_blocks[block][2])
+            super(PoseNetwork, self).add_module(
+                str(block) + "c0", self.res_blocks[block][0]
+            )
+            super(PoseNetwork, self).add_module(
+                str(block) + "c1", self.res_blocks[block][1]
+            )
+            super(PoseNetwork, self).add_module(
+                str(block) + "c2", self.res_blocks[block][2]
+            )
 
         self.fc1 = nn.Conv2d(self.head_channels, self.head_channels, 1, 1, 0)
         self.fc2 = nn.Conv2d(self.head_channels, self.head_channels, 1, 1, 0)
         self.fc3 = nn.Conv2d(self.head_channels, 12, 1, 1, 0)
 
     def forward(self, res):
-
         x = F.relu(self.conv1(res))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
@@ -83,13 +91,14 @@ class PoseRefiner:
     """
 
     def __init__(self, dataset, device, options):
-
         self.dataset = dataset
         self.device = device
 
         # set refinement strategy
-        if options.pose_refinement not in ['none', 'naive', 'mlp']:
-            raise ValueError(f"Pose refinement strategy {options.pose_refinement} not supported")
+        if options.pose_refinement not in ["none", "naive", "mlp"]:
+            raise ValueError(
+                f"Pose refinement strategy {options.pose_refinement} not supported"
+            )
         self.refinement_strategy = options.pose_refinement
 
         # set options
@@ -115,13 +124,15 @@ class PoseRefiner:
         # fill pose buffer with inverse poses (camera to world)
         for pose_idx, pose in enumerate(self.dataset.poses):
             self.pose_buffer_orig[pose_idx] = pose.inverse().clone()[:3]
-        self.pose_buffer = self.pose_buffer_orig.contiguous().to(self.device, non_blocking=True)
+        self.pose_buffer = self.pose_buffer_orig.contiguous().to(
+            self.device, non_blocking=True
+        )
 
         # set the pose optimization strategy
-        if self.refinement_strategy == 'none':
+        if self.refinement_strategy == "none":
             # will keep original poses
             pass
-        elif self.refinement_strategy == 'naive':
+        elif self.refinement_strategy == "naive":
             # back-prop to poses directly
             self.pose_buffer = self.pose_buffer.detach().requires_grad_()
             self.pose_optimizer = optim.AdamW([self.pose_buffer], lr=self.learning_rate)
@@ -130,7 +141,9 @@ class PoseRefiner:
             self.pose_network = PoseNetwork(0, 128)
             self.pose_network = self.pose_network.to(self.device)
             self.pose_network.train()
-            self.pose_optimizer = optim.AdamW(self.pose_network.parameters(), lr=self.learning_rate)
+            self.pose_optimizer = optim.AdamW(
+                self.pose_network.parameters(), lr=self.learning_rate
+            )
 
     def _orthonormalize_poses(self, poses_b33):
         """
@@ -142,9 +155,9 @@ class PoseRefiner:
         if H != 3 or W != 3:
             raise ValueError("Can only orthonormalize 3x3 rotation matrices")
 
-        if self.orthonormalization == 'none':
+        if self.orthonormalization == "none":
             return poses_b33
-        elif self.orthonormalization == 'gram-schmidt':
+        elif self.orthonormalization == "gram-schmidt":
             return roma.special_gramschmidt(poses_b33)
         else:
             return roma.special_procrustes(poses_b33)
@@ -167,7 +180,9 @@ class PoseRefiner:
         pose_update_b1211 = self.pose_network(poses_b1211)
 
         # combine deltas with original poses
-        updated_poses_b34 = (poses_b1211 + self.update_weight * pose_update_b1211).view(-1, 3, 4)
+        updated_poses_b34 = (poses_b1211 + self.update_weight * pose_update_b1211).view(
+            -1, 3, 4
+        )
 
         # orthonormalize rotation part
         updated_rots_b33 = self._orthonormalize_poses(updated_poses_b34[:, :3, :3])
@@ -185,14 +200,16 @@ class PoseRefiner:
         """
         Get all current estimates of refined poses.
         """
-        if self.refinement_strategy == 'none':
+        if self.refinement_strategy == "none":
             # just return original poses
             return self.pose_buffer_orig.clone()
-        elif self.refinement_strategy == 'naive':
+        elif self.refinement_strategy == "naive":
             # return current state of the pose buffer
             current_poses = self.pose_buffer.clone()
             # orthonormalize rotation part
-            current_poses[:, :3, :3] = self._orthonormalize_poses(current_poses[:, :3, :3])
+            current_poses[:, :3, :3] = self._orthonormalize_poses(
+                current_poses[:, :3, :3]
+            )
             return current_poses
         else:
             # predict pose updates with current state of the network
@@ -201,7 +218,9 @@ class PoseRefiner:
                 output_poses = self.pose_buffer.clone()
 
                 # predict current poses
-                current_rots_b33, current_trans_b31 = self._predict_pose_updates(output_poses)
+                current_rots_b33, current_trans_b31 = self._predict_pose_updates(
+                    output_poses
+                )
 
                 # put back together
                 output_poses[:, :3, :3] = current_rots_b33
@@ -218,10 +237,10 @@ class PoseRefiner:
         """
         output_poses_b44 = original_poses_b44.clone()
 
-        if self.refinement_strategy == 'none':
+        if self.refinement_strategy == "none":
             # just return original poses
             return output_poses_b44
-        elif self.refinement_strategy == 'naive':
+        elif self.refinement_strategy == "naive":
             # get current state of the poses from buffer
             current_poses_b34 = self.pose_buffer[original_poses_indices].squeeze()
             # orthonormalize rotation part
@@ -235,7 +254,9 @@ class PoseRefiner:
 
         else:
             # predict pose updates with current state of the network
-            predicted_rots_b33, predicted_trans_b31 = self._predict_pose_updates(original_poses_b44[:, :3])
+            predicted_rots_b33, predicted_trans_b31 = self._predict_pose_updates(
+                original_poses_b44[:, :3]
+            )
 
             # make current poses 4x4 by writing them back to the input poses
             output_poses_b44[:, :3, :3] = predicted_rots_b33

@@ -1,6 +1,6 @@
+import numpy as np
 import torch
 from torch import optim
-import numpy as np
 
 
 class CalibrationRefiner:
@@ -12,7 +12,9 @@ class CalibrationRefiner:
         # check whether focal length are all identical, we only support one focal length for all images
         focal_lengths = [dataset.get_focal_length(i) for i in range(len(dataset))]
         if not np.allclose(focal_lengths, focal_lengths[0]):
-            raise ValueError("All images must have the same focal length for calibration refinement")
+            raise ValueError(
+                "All images must have the same focal length for calibration refinement"
+            )
 
         # initialise intrinsics
         self.focal_length_init = focal_lengths[0]
@@ -57,4 +59,3 @@ class CalibrationRefiner:
 
     def step(self):
         self.optimizer.step()
-

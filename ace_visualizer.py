@@ -2,16 +2,17 @@
 
 import os
 
-os.environ['PYOPENGL_PLATFORM'] = 'egl'
+os.environ["PYOPENGL_PLATFORM"] = "egl"
 
 import logging
 import math
+import pickle
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pyrender
+from skimage import draw, io
 from skimage.transform import rotate
-from skimage import io, draw
-import matplotlib.pyplot as plt
-import pickle
 
 import ace_vis_util as vutil
 
@@ -52,16 +53,18 @@ class ACEVisualizer:
     1) render_final_sweep: Called once in the end, shows the final camera trajectory and the scene point cloud
     """
 
-    def __init__(self,
-                 target_path,
-                 flipped_portait,
-                 map_depth_filter,
-                 mapping_vis_error_threshold=10,
-                 reloc_vis_conf_threshold=5000,
-                 sweep_vis_iterations_threshold=10,
-                 confidence_threshold=1000,
-                 mapping_state_file_name='mapping_state.pkl',
-                 marker_size=0.03):
+    def __init__(
+        self,
+        target_path,
+        flipped_portait,
+        map_depth_filter,
+        mapping_vis_error_threshold=10,
+        reloc_vis_conf_threshold=5000,
+        sweep_vis_iterations_threshold=10,
+        confidence_threshold=1000,
+        mapping_state_file_name="mapping_state.pkl",
+        marker_size=0.03,
+    ):
         """
         Constructor. Sets standard values for visualisation parameters.
 
@@ -94,7 +97,10 @@ class ACEVisualizer:
 
         if self.flipped_portrait:
             # for flipped portrait datasets, we render sideways and rotate the final image back
-            self.render_width, self.render_height = self.render_height, self.render_width
+            self.render_width, self.render_height = (
+                self.render_height,
+                self.render_width,
+            )
 
         reference_height = min(self.render_height, self.render_width)
         self.err_hist_bins = 40
@@ -105,8 +111,12 @@ class ACEVisualizer:
         self.err_hist_w_mapping = int(0.2 * reference_height)
 
         # mapping vis parameters
-        self.framecount_transition = 10  # frame count for growing the fully trained map at the end of mapping
-        self.mapping_done_idx = -1  # frame idx when mapping was finalized, -1 when not finalized yet
+        self.framecount_transition = (
+            10  # frame count for growing the fully trained map at the end of mapping
+        )
+        self.mapping_done_idx = (
+            -1
+        )  # frame idx when mapping was finalized, -1 when not finalized yet
         self.pan_angle_coverage = 60  # degrees, opening angle of the camera pan
         self.frustum_scale_mapping = 0.3  # scale factor for the camera frustum objects
         self.mapping_frustum_skip = 0.5  # place mapping frustum every X meters
@@ -127,10 +137,14 @@ class ACEVisualizer:
         self.reloc_vis_conf_threshold = reloc_vis_conf_threshold
         self.confidence_threshold = confidence_threshold
 
-        conf_neg_steps = int(self.confidence_threshold / self.reloc_vis_conf_threshold * 256)
+        conf_neg_steps = int(
+            self.confidence_threshold / self.reloc_vis_conf_threshold * 256
+        )
         conf_pos_steps = 256 - conf_neg_steps
 
-        conf_pos_map = plt.cm.get_cmap("summer")(np.linspace(1, 0, conf_pos_steps))[:, :3]
+        conf_pos_map = plt.cm.get_cmap("summer")(np.linspace(1, 0, conf_pos_steps))[
+            :, :3
+        ]
         conf_neg_map = plt.cm.get_cmap("cool")(np.linspace(1, 0, conf_neg_steps))[:, :3]
 
         self.reloc_color_map = np.concatenate((conf_neg_map, conf_pos_map))
@@ -166,11 +180,9 @@ class ACEVisualizer:
         # index of current frame, rendered frame
         self.frame_idx = 0
 
-    def _generate_camera_pan(self,
-                             pan_number_cams,
-                             mapping_poses,
-                             pan_angle_coverage,
-                             anchor_camera=None):
+    def _generate_camera_pan(
+        self, pan_number_cams, mapping_poses, pan_angle_coverage, anchor_camera=None
+    ):
         """
         Generate a list of camera views that smoothly pan around the scene.
 
@@ -186,7 +198,10 @@ class ACEVisualizer:
         if anchor_camera is None:
             pan_center_pose = mapping_poses[len(mapping_poses) // 2].copy()
         else:
-            pose_distances = [np.linalg.norm(pose[:3, 3] - anchor_camera[:3, 3]) for pose in mapping_poses]
+            pose_distances = [
+                np.linalg.norm(pose[:3, 3] - anchor_camera[:3, 3])
+                for pose in mapping_poses
+            ]
             pan_center_pose = mapping_poses[pose_distances.index(min(pose_distances))]
 
         # move pan center to the average of all pose positions
@@ -224,7 +239,9 @@ class ACEVisualizer:
 
             if self.flipped_portrait:
                 # rotation around x
-                pan_rotation_angle = math.radians(pan_angle_coverage / 2 - pan_angle_increment * i)
+                pan_rotation_angle = math.radians(
+                    pan_angle_coverage / 2 - pan_angle_increment * i
+                )
 
                 pan_pose[1, 1] = math.cos(pan_rotation_angle)
                 pan_pose[1, 2] = -math.sin(pan_rotation_angle)
@@ -232,7 +249,9 @@ class ACEVisualizer:
                 pan_pose[2, 2] = math.cos(pan_rotation_angle)
             else:
                 # rotation around y
-                pan_rotation_angle = math.radians(-pan_angle_coverage / 2 + pan_angle_increment * i)
+                pan_rotation_angle = math.radians(
+                    -pan_angle_coverage / 2 + pan_angle_increment * i
+                )
 
                 pan_pose[0, 0] = math.cos(pan_rotation_angle)
                 pan_pose[0, 2] = math.sin(pan_rotation_angle)
@@ -274,8 +293,8 @@ class ACEVisualizer:
             frustum_pose = mapping_poses[frame_idx].copy()
 
             self.trajectory_buffer.add_position_marker(
-                marker_pose=frustum_pose,
-                marker_color=(125, 125, 125))
+                marker_pose=frustum_pose, marker_color=(125, 125, 125)
+            )
 
     @staticmethod
     def _convert_cv_to_gl(pose):
@@ -285,15 +304,14 @@ class ACEVisualizer:
         @param pose: 4x4 camera pose.
         @return: 4x4 camera pose.
         """
-        gl_to_cv = np.array([[1, -1, -1, 1], [-1, 1, 1, -1], [-1, 1, 1, -1], [1, 1, 1, 1]])
+        gl_to_cv = np.array(
+            [[1, -1, -1, 1], [-1, 1, 1, -1], [-1, 1, 1, -1], [1, 1, 1, 1]]
+        )
         return gl_to_cv * pose
 
-    def setup_mapping_visualisation(self,
-                                    poses,
-                                    frame_count,
-                                    camera_z_offset,
-                                    existing_vis_buffer
-                                    ):
+    def setup_mapping_visualisation(
+        self, poses, frame_count, camera_z_offset, existing_vis_buffer
+    ):
         """
         Reset visualisation buffers for the mapping visualisation.
 
@@ -310,20 +328,23 @@ class ACEVisualizer:
         mapping_poses = [self._convert_cv_to_gl(pose.numpy()) for pose in poses]
 
         # filter our invalid poses
-        mapping_poses = [pose for pose in mapping_poses if
-                         ((not np.any(np.isinf(pose))) and (not np.any(np.isnan(pose))))]
+        mapping_poses = [
+            pose
+            for pose in mapping_poses
+            if ((not np.any(np.isinf(pose))) and (not np.any(np.isnan(pose))))
+        ]
 
         # create panning motion around scene
         self.pan_cams = self._generate_camera_pan(
             pan_number_cams=frame_count + self.framecount_transition,
             mapping_poses=mapping_poses,
-            pan_angle_coverage=self.pan_angle_coverage
+            pan_angle_coverage=self.pan_angle_coverage,
         )
 
         # reset camera trajectory to render
         self.trajectory_buffer = vutil.CameraTrajectoryBuffer(
             frustum_skip=self.mapping_frustum_skip,
-            frustum_scale=self.frustum_scale_mapping
+            frustum_scale=self.frustum_scale_mapping,
         )
         # fill buffer with mapping trajectory
         self._generate_camera_trajectory(mapping_poses)
@@ -339,14 +360,18 @@ class ACEVisualizer:
 
         # load existing visualisation state if available
         if existing_vis_buffer is not None:
-            with open(os.path.join(self.target_path, existing_vis_buffer), "rb") as file:
+            with open(
+                os.path.join(self.target_path, existing_vis_buffer), "rb"
+            ) as file:
                 state_dict = pickle.load(file)
 
-            self.frame_idx = state_dict['frame_idx']
-            self.scene_camera = vutil.LazyCamera(backwards_offset=camera_z_offset,
-                                                 camera_buffer=state_dict['camera_buffer'])
+            self.frame_idx = state_dict["frame_idx"]
+            self.scene_camera = vutil.LazyCamera(
+                backwards_offset=camera_z_offset,
+                camera_buffer=state_dict["camera_buffer"],
+            )
 
-            pan_cams = state_dict['pan_cameras']
+            pan_cams = state_dict["pan_cameras"]
             anchor_camera = pan_cams[len(pan_cams) // 2]
 
             # re-create panning motion roughly aligned with the last pan
@@ -354,7 +379,7 @@ class ACEVisualizer:
                 pan_number_cams=frame_count + self.framecount_transition,
                 mapping_poses=mapping_poses,
                 pan_angle_coverage=self.pan_angle_coverage,
-                anchor_camera=anchor_camera
+                anchor_camera=anchor_camera,
             )
 
     @staticmethod
@@ -394,7 +419,13 @@ class ACEVisualizer:
         for frustum_image in frustum_images:
             scene.add(frustum_image)
 
-        color, _ = r.render(scene, flags=(pyrender.constants.RenderFlags.RGBA | pyrender.constants.RenderFlags.FLAT))
+        color, _ = r.render(
+            scene,
+            flags=(
+                pyrender.constants.RenderFlags.RGBA
+                | pyrender.constants.RenderFlags.FLAT
+            ),
+        )
 
         return color
 
@@ -411,8 +442,10 @@ class ACEVisualizer:
         mask /= 255
         mask = np.expand_dims(mask, axis=2)
 
-        blended_rgb = img2_RGBA[:, :, :3].astype(float) * mask + img1_RGB.astype(float) * (1 - mask)
-        return blended_rgb.astype('uint8')
+        blended_rgb = img2_RGBA[:, :, :3].astype(float) * mask + img1_RGB.astype(
+            float
+        ) * (1 - mask)
+        return blended_rgb.astype("uint8")
 
     def _errors_to_colors(self, errors, max_error):
         """
@@ -430,7 +463,9 @@ class ACEVisualizer:
         errors_idxs = (norm_errors * 255).astype(int)
 
         # expand color map to size of the point cloud
-        errors_clr = np.broadcast_to(self.mapping_color_map, (errors_idxs.shape[0], 256, 3))
+        errors_clr = np.broadcast_to(
+            self.mapping_color_map, (errors_idxs.shape[0], 256, 3)
+        )
         # for each point, pick color from color map according to error index
         errors_clr = errors_clr[np.arange(errors_idxs.shape[0]), errors_idxs] * 255
 
@@ -477,7 +512,17 @@ class ACEVisualizer:
         return image
 
     @staticmethod
-    def _draw_hist(image, hist_values, hist_colors, hist_x, hist_y, hist_w, hist_h, hist_max, min_height=3):
+    def _draw_hist(
+        image,
+        hist_values,
+        hist_colors,
+        hist_x,
+        hist_y,
+        hist_w,
+        hist_h,
+        hist_max,
+        min_height=3,
+    ):
         """
         Add a histogram to the frame.
 
@@ -515,8 +560,13 @@ class ACEVisualizer:
         hist_values, _ = np.histogram(errors, bins=self.err_hist_bins, range=(0, 1))
 
         # look up colors for bins
-        hist_color_idxs = [int(hist_idx / self.err_hist_bins * 255) for hist_idx in range(self.err_hist_bins)]
-        hist_colors = [self.mapping_color_map[clr_idx] * 255 for clr_idx in hist_color_idxs]
+        hist_color_idxs = [
+            int(hist_idx / self.err_hist_bins * 255)
+            for hist_idx in range(self.err_hist_bins)
+        ]
+        hist_colors = [
+            self.mapping_color_map[clr_idx] * 255 for clr_idx in hist_color_idxs
+        ]
 
         self._draw_hist(
             image=image,
@@ -526,12 +576,18 @@ class ACEVisualizer:
             hist_y=self.err_hist_y,
             hist_h=self.err_hist_h,
             hist_w=self.err_hist_w_mapping,
-            hist_max=hist_values.max())
+            hist_max=hist_values.max(),
+        )
 
         # draw a fake histogram as legend for the pose refinement
         hist_values = np.zeros((self.err_hist_bins))
-        hist_color_idxs = [int(hist_idx / self.err_hist_bins * 255) for hist_idx in range(self.err_hist_bins)]
-        hist_colors = [self.pose_color_map[clr_idx] * 255 for clr_idx in hist_color_idxs]
+        hist_color_idxs = [
+            int(hist_idx / self.err_hist_bins * 255)
+            for hist_idx in range(self.err_hist_bins)
+        ]
+        hist_colors = [
+            self.pose_color_map[clr_idx] * 255 for clr_idx in hist_color_idxs
+        ]
 
         self._draw_hist(
             image=image,
@@ -542,7 +598,8 @@ class ACEVisualizer:
             hist_h=self.err_hist_h,
             hist_w=self.err_hist_w_mapping,
             hist_max=1,
-            min_height=10)
+            min_height=10,
+        )
 
         return image
 
@@ -558,13 +615,20 @@ class ACEVisualizer:
         # generate histogram of pose confidences
         errors_clipped = np.clip(errors, a_min=0, a_max=self.reloc_vis_conf_threshold)
 
-        hist_values, _ = np.histogram(errors_clipped,
-                                      bins=self.err_hist_bins,
-                                      range=(0, self.reloc_vis_conf_threshold))
+        hist_values, _ = np.histogram(
+            errors_clipped,
+            bins=self.err_hist_bins,
+            range=(0, self.reloc_vis_conf_threshold),
+        )
 
         # look up colors for bins but special handling of outlier bin
-        hist_color_idxs = [int(hist_idx / self.err_hist_bins * 255) for hist_idx in range(self.err_hist_bins)]
-        hist_colors = [self.reloc_color_map[clr_idx] * 255 for clr_idx in hist_color_idxs]
+        hist_color_idxs = [
+            int(hist_idx / self.err_hist_bins * 255)
+            for hist_idx in range(self.err_hist_bins)
+        ]
+        hist_colors = [
+            self.reloc_color_map[clr_idx] * 255 for clr_idx in hist_color_idxs
+        ]
 
         self._draw_hist(
             image=image,
@@ -574,7 +638,8 @@ class ACEVisualizer:
             hist_y=self.err_hist_y,
             hist_h=self.err_hist_h,
             hist_w=self.err_hist_w_reloc,
-            hist_max=self.reloc_frame_count)
+            hist_max=self.reloc_frame_count,
+        )
 
         return image
 
@@ -588,11 +653,17 @@ class ACEVisualizer:
         """
 
         # generate histogram of registration iterations
-        hist_values, _ = np.histogram(reg_iterations, bins=self.sweep_hist_bins,
-                                      range=(0, self.sweep_vis_iterations_threshold))
+        hist_values, _ = np.histogram(
+            reg_iterations,
+            bins=self.sweep_hist_bins,
+            range=(0, self.sweep_vis_iterations_threshold),
+        )
 
         # look up colors for bins
-        hist_colors = [self.sweep_color_map[clr_idx] * 255 for clr_idx in range(self.sweep_hist_bins)]
+        hist_colors = [
+            self.sweep_color_map[clr_idx] * 255
+            for clr_idx in range(self.sweep_hist_bins)
+        ]
 
         self._draw_hist(
             image=image,
@@ -602,7 +673,8 @@ class ACEVisualizer:
             hist_y=self.err_hist_y,
             hist_h=self.err_hist_h,
             hist_w=self.err_hist_w_reloc,
-            hist_max=len(reg_iterations))
+            hist_max=len(reg_iterations),
+        )
 
         return image
 
@@ -622,7 +694,14 @@ class ACEVisualizer:
         fig.figimage(image, resize=True)
 
         for caption in captions_dict:
-            fig.text(caption['x'], caption['y'], caption['text'], fontsize=caption['fs'], va="top", color=text_color)
+            fig.text(
+                caption["x"],
+                caption["y"],
+                caption["text"],
+                fontsize=caption["fs"],
+                va="top",
+                color=text_color,
+            )
 
         fig.canvas.draw()
         image = np.asarray(fig.canvas.renderer.buffer_rgba())
@@ -640,14 +719,25 @@ class ACEVisualizer:
         image_h = image.shape[0]
 
         captions_dict = [
-            {'x': 0.15, 'y': 0.13, 'fs': 0.04 * image_h,
-             'text': "Neural Mapping"},
-            {'x': 0.15, 'y': 0.063, 'fs': 0.02 * image_h,
-             'text': f"Iteration: {self._get_mapping_progress()}"},
-            {'x': 0.76, 'y': 0.975, 'fs': 0.015 * image_h,
-             'text': f">{self.mapping_vis_error_threshold}px       Reprojection Error       0px"},
-            {'x': 0.06, 'y': 0.975, 'fs': 0.015 * image_h,
-             'text': f"0m        Pose Refinement        >0.5m"}
+            {"x": 0.15, "y": 0.13, "fs": 0.04 * image_h, "text": "Neural Mapping"},
+            {
+                "x": 0.15,
+                "y": 0.063,
+                "fs": 0.02 * image_h,
+                "text": f"Iteration: {self._get_mapping_progress()}",
+            },
+            {
+                "x": 0.76,
+                "y": 0.975,
+                "fs": 0.015 * image_h,
+                "text": f">{self.mapping_vis_error_threshold}px       Reprojection Error       0px",
+            },
+            {
+                "x": 0.06,
+                "y": 0.975,
+                "fs": 0.015 * image_h,
+                "text": f"0m        Pose Refinement        >0.5m",
+            }
             # yep, I use spaces to align parts of this caption. Too lazy to do it properly :)
         ]
 
@@ -663,12 +753,24 @@ class ACEVisualizer:
         image_h = image.shape[0]
 
         captions_dict = [
-            {'x': 0.15, 'y': 0.13, 'fs': 0.04 * image_h,
-             'text': "Registering Mapping Frames"},
-            {'x': 0.15, 'y': 0.063, 'fs': 0.02 * image_h,
-             'text': f"Successfully Registered: {self.reloc_success_counter}/{self.reloc_frame_counter + 1} frames ({self.reloc_success_counter / (self.reloc_frame_counter + 1) * 100:.1f}%)"},
-            {'x': 0.76, 'y': 0.975, 'fs': 0.015 * image_h,
-             'text': f"0   {int(self.confidence_threshold)}            Confidence             {self.reloc_vis_conf_threshold // 1000}k"}
+            {
+                "x": 0.15,
+                "y": 0.13,
+                "fs": 0.04 * image_h,
+                "text": "Registering Mapping Frames",
+            },
+            {
+                "x": 0.15,
+                "y": 0.063,
+                "fs": 0.02 * image_h,
+                "text": f"Successfully Registered: {self.reloc_success_counter}/{self.reloc_frame_counter + 1} frames ({self.reloc_success_counter / (self.reloc_frame_counter + 1) * 100:.1f}%)",
+            },
+            {
+                "x": 0.76,
+                "y": 0.975,
+                "fs": 0.015 * image_h,
+                "text": f"0   {int(self.confidence_threshold)}            Confidence             {self.reloc_vis_conf_threshold // 1000}k",
+            }
             # yep, I use spaces to align parts of this caption. Too lazy to do it properly :)
         ]
 
@@ -684,12 +786,19 @@ class ACEVisualizer:
         image_h = image.shape[0]
 
         captions_dict = [
-            {'x': 0.15, 'y': 0.13, 'fs': 0.04 * image_h,
-             'text': "Mapping Done"},
-            {'x': 0.15, 'y': 0.063, 'fs': 0.02 * image_h,
-             'text': f"Successfully Registered: {frames_registered}/{frames_total} frames ({frames_registered / frames_total * 100:.1f}%)"},
-            {'x': 0.76, 'y': 0.975, 'fs': 0.015 * image_h,
-             'text': f"0          Registered in Iteration        >{self.sweep_vis_iterations_threshold}"}
+            {"x": 0.15, "y": 0.13, "fs": 0.04 * image_h, "text": "Mapping Done"},
+            {
+                "x": 0.15,
+                "y": 0.063,
+                "fs": 0.02 * image_h,
+                "text": f"Successfully Registered: {frames_registered}/{frames_total} frames ({frames_registered / frames_total * 100:.1f}%)",
+            },
+            {
+                "x": 0.76,
+                "y": 0.975,
+                "fs": 0.015 * image_h,
+                "text": f"0          Registered in Iteration        >{self.sweep_vis_iterations_threshold}",
+            }
             # yep, I use spaces to align parts of this caption. Too lazy to do it properly :)
         ]
 
@@ -725,8 +834,12 @@ class ACEVisualizer:
         smooth_camera_pose = self.scene_camera.get_current_view()
 
         # initialise pyrender pipeline
-        camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=self.render_width / self.render_height)
-        r = pyrender.OffscreenRenderer(self.render_width, self.render_height, point_size=self.point_size)
+        camera = pyrender.PerspectiveCamera(
+            yfov=np.pi / 3.0, aspectRatio=self.render_width / self.render_height
+        )
+        r = pyrender.OffscreenRenderer(
+            self.render_width, self.render_height, point_size=self.point_size
+        )
 
         # cast PC to rendering object
         frame_xyz, frame_clr, _ = self.point_cloud_buffer.get_point_cloud()
@@ -738,13 +851,17 @@ class ACEVisualizer:
         # render PC with normal shading
         bg_RGB = self._render_pc(r, ace_map, camera, smooth_camera_pose)
         # render camera trajectory with flat shading and alpha transparency for blending
-        cams_RGBA = self._render_trajectory(r, trajectory_mesh, camera, smooth_camera_pose, frustum_images)
+        cams_RGBA = self._render_trajectory(
+            r, trajectory_mesh, camera, smooth_camera_pose, frustum_images
+        )
         # combine the two renders
         blended_RGB = self._blend_images(bg_RGB, cams_RGBA)
 
         # rotate from portrait to landscape
         if self.flipped_portrait:
-            blended_RGB = rotate(blended_RGB, -90, resize=True, preserve_range=True).astype('uint8')
+            blended_RGB = rotate(
+                blended_RGB, -90, resize=True, preserve_range=True
+            ).astype("uint8")
 
         return blended_RGB
 
@@ -815,10 +932,12 @@ class ACEVisualizer:
                 marker_pose=self._convert_cv_to_gl(pose_refined),
                 marker_color=pose_color,
                 marker_extent=self.marker_size,
-                frustum_maker=True
+                frustum_maker=True,
             )
 
-    def render_mapping_frame(self, scene_coordinates, errors, pose_buffer, pose_buffer_orig, iteration):
+    def render_mapping_frame(
+        self, scene_coordinates, errors, pose_buffer, pose_buffer_orig, iteration
+    ):
         """
         Update point cloud buffer with current scene coordinates and render frame.
 
@@ -836,9 +955,13 @@ class ACEVisualizer:
         scene_coordinates[:, 1] = -scene_coordinates[:, 1]
         scene_coordinates[:, 2] = -scene_coordinates[:, 2]
         # color point cloud according to errors
-        scene_coordinates_clr, errors_normalized = self._errors_to_colors(errors, self.mapping_vis_error_threshold)
+        scene_coordinates_clr, errors_normalized = self._errors_to_colors(
+            errors, self.mapping_vis_error_threshold
+        )
         # update rolling buffer
-        self.point_cloud_buffer.update_buffer(scene_coordinates, scene_coordinates_clr, errors_normalized)
+        self.point_cloud_buffer.update_buffer(
+            scene_coordinates, scene_coordinates_clr, errors_normalized
+        )
 
         # remember how many items were in the buffer before we add the current camera poses
         trajectory_buffer_size = len(self.trajectory_buffer.trajectory)
@@ -850,7 +973,9 @@ class ACEVisualizer:
         self._render_mapping_frame_from_buffers()
 
         # restore the buffer by removing the camera poses we just added.
-        self.trajectory_buffer.trajectory = self.trajectory_buffer.trajectory[:trajectory_buffer_size]
+        self.trajectory_buffer.trajectory = self.trajectory_buffer.trajectory[
+            :trajectory_buffer_size
+        ]
 
     def finalize_mapping(self, network, data_loader, pose_buffer, pose_buffer_orig):
         """
@@ -869,7 +994,9 @@ class ACEVisualizer:
         self.visualize_cam_positions(pose_buffer, pose_buffer_orig)
 
         _logger.info(f"Extract fully trained map from network.")
-        map_xyz, map_clr = vutil.get_point_cloud_from_network(network, data_loader, self.map_depth_filter)
+        map_xyz, map_clr = vutil.get_point_cloud_from_network(
+            network, data_loader, self.map_depth_filter
+        )
 
         # split the full point cloud into chunks for a "growing" effect
         main_pc_chunk_size = map_xyz.shape[0] // self.framecount_transition
@@ -887,11 +1014,10 @@ class ACEVisualizer:
         self.mapping_done_idx = self.mapping_iteration
 
         for transition_idx in range(self.framecount_transition):
-
             # update rolling buffer
             self.point_cloud_buffer.update_buffer(
-                main_pc_xyz_buffer[transition_idx],
-                main_pc_clr_buffer[transition_idx])
+                main_pc_xyz_buffer[transition_idx], main_pc_clr_buffer[transition_idx]
+            )
 
             if transition_idx == self.point_cloud_buffer.pc_buffer_size:
                 # point cloud buffer has been entirely filled with new map pc
@@ -903,11 +1029,11 @@ class ACEVisualizer:
 
         # save state for smooth transition when rendering the localisation phase
         state_dict = {
-            'map_xyz': map_xyz,
-            'map_clr': map_clr,
-            'frame_idx': self.frame_idx,
-            'camera_buffer': self.scene_camera.get_camera_buffer(),
-            'pan_cameras': self.pan_cams
+            "map_xyz": map_xyz,
+            "map_clr": map_clr,
+            "frame_idx": self.frame_idx,
+            "camera_buffer": self.scene_camera.get_camera_buffer(),
+            "pan_cameras": self.pan_cams,
         }
 
         with open(self.state_file, "wb") as file:
@@ -929,19 +1055,22 @@ class ACEVisualizer:
         with open(self.state_file, "rb") as file:
             state_dict = pickle.load(file)
 
-        map_xyz = state_dict['map_xyz']
-        map_clr = state_dict['map_clr']
+        map_xyz = state_dict["map_xyz"]
+        map_clr = state_dict["map_clr"]
 
-        self.frame_idx = state_dict['frame_idx']
-        self.scene_camera = vutil.LazyCamera(backwards_offset=camera_z_offset,
-                                             camera_buffer=state_dict['camera_buffer'])
-        self.pan_cams = state_dict['pan_cameras']
+        self.frame_idx = state_dict["frame_idx"]
+        self.scene_camera = vutil.LazyCamera(
+            backwards_offset=camera_z_offset, camera_buffer=state_dict["camera_buffer"]
+        )
+        self.pan_cams = state_dict["pan_cameras"]
 
         self.point_cloud_buffer = vutil.PointCloudBuffer()
         self.point_cloud_buffer.update_buffer(map_xyz, map_clr)
 
         # reset all buffers
-        self.trajectory_buffer = vutil.CameraTrajectoryBuffer(frustum_skip=0, frustum_scale=self.frustum_scale_reloc)
+        self.trajectory_buffer = vutil.CameraTrajectoryBuffer(
+            frustum_skip=0, frustum_scale=self.frustum_scale_reloc
+        )
         self.reloc_conf_buffer = []
 
         self.reloc_frame_count = frame_count
@@ -971,12 +1100,12 @@ class ACEVisualizer:
 
         # remove previous frustums, and add just the new ones from the current frame
         self.trajectory_buffer.clear_frustums()
-        self.trajectory_buffer.add_camera_frustum(est_pose, image_file=query_file, sparse=False,
-                                                  frustum_color=conf_color)
+        self.trajectory_buffer.add_camera_frustum(
+            est_pose, image_file=query_file, sparse=False, frustum_color=conf_color
+        )
 
         # keep camera if confidence is above threshold
         if confidence > self.confidence_threshold:
-
             self.reloc_success_counter += 1
 
             # add previous frame's estimate as a colored marker to the trajectory
@@ -985,7 +1114,8 @@ class ACEVisualizer:
                     marker_pose=self.reloc_buffer_previous_est,
                     marker_color=self.reloc_buffer_previous_clr,
                     marker_extent=marker_size,
-                    frustum_maker=True)
+                    frustum_maker=True,
+                )
 
             # remember this frame's estimate for next render call
             self.reloc_buffer_previous_est = est_pose
@@ -995,10 +1125,8 @@ class ACEVisualizer:
         frame_skip = max(1, self.reloc_frame_count // self.reloc_duration)
 
         if self.reloc_frame_counter % frame_skip == 0:
-
             # for sparse queries we render multiple frames for a smooth transition
             for render_idx in range(renders_per_query):
-
                 # update observing camera
                 self.scene_camera.update_camera(self._get_pan_camera())
 
@@ -1007,7 +1135,9 @@ class ACEVisualizer:
 
                 if current_frame is not None:
                     # finalize frame
-                    current_frame = self._draw_pose_conf_hist(current_frame, self.reloc_conf_buffer)
+                    current_frame = self._draw_pose_conf_hist(
+                        current_frame, self.reloc_conf_buffer
+                    )
                     current_frame = self._write_reloc_captions(current_frame)
 
                     self._save_frame(current_frame)
@@ -1017,7 +1147,9 @@ class ACEVisualizer:
 
         self.reloc_frame_counter += 1
 
-    def render_final_sweep(self, frame_count, camera_z_offset, poses, pose_iterations, total_poses):
+    def render_final_sweep(
+        self, frame_count, camera_z_offset, poses, pose_iterations, total_poses
+    ):
         """
         Render final camera sweep after relocalisation.
 
@@ -1033,23 +1165,26 @@ class ACEVisualizer:
         with open(self.state_file, "rb") as file:
             state_dict = pickle.load(file)
 
-        map_xyz = state_dict['map_xyz']
-        map_clr = state_dict['map_clr']
+        map_xyz = state_dict["map_xyz"]
+        map_clr = state_dict["map_clr"]
 
         _logger.info("Generating final camera sweep.")
 
-        self.frame_idx = state_dict['frame_idx']
-        self.scene_camera = vutil.LazyCamera(backwards_offset=camera_z_offset,
-                                             camera_buffer=state_dict['camera_buffer'])
+        self.frame_idx = state_dict["frame_idx"]
+        self.scene_camera = vutil.LazyCamera(
+            backwards_offset=camera_z_offset, camera_buffer=state_dict["camera_buffer"]
+        )
 
-        pan_cams = state_dict['pan_cameras']
+        pan_cams = state_dict["pan_cameras"]
         anchor_camera = pan_cams[len(pan_cams) // 2]
 
         self.point_cloud_buffer = vutil.PointCloudBuffer()
         self.point_cloud_buffer.update_buffer(map_xyz, map_clr)
 
         # reset all buffers
-        self.trajectory_buffer = vutil.CameraTrajectoryBuffer(frustum_skip=0, frustum_scale=self.frustum_scale_reloc)
+        self.trajectory_buffer = vutil.CameraTrajectoryBuffer(
+            frustum_skip=0, frustum_scale=self.frustum_scale_reloc
+        )
         self.reloc_conf_buffer = []
 
         poses = [self._convert_cv_to_gl(pose) for pose in poses]
@@ -1058,24 +1193,33 @@ class ACEVisualizer:
         max_iterations = 10
         marker_size = self.marker_size
 
-        progress_color_map = plt.cm.get_cmap("cool")(np.linspace(0, 1, max_iterations))[:, :3]
+        progress_color_map = plt.cm.get_cmap("cool")(np.linspace(0, 1, max_iterations))[
+            :, :3
+        ]
 
         for pose_idx, pose in enumerate(poses):
             progress_color_idx = min(pose_iterations[pose_idx], max_iterations - 1)
             current_color = progress_color_map[progress_color_idx] * 255
 
-            self.trajectory_buffer.add_position_marker(pose, marker_color=current_color, frustum_maker=True,
-                                                       marker_extent=marker_size)
+            self.trajectory_buffer.add_position_marker(
+                pose,
+                marker_color=current_color,
+                frustum_maker=True,
+                marker_extent=marker_size,
+            )
 
-            self.reloc_conf_buffer.append(min(pose_iterations[pose_idx], max_iterations))
+            self.reloc_conf_buffer.append(
+                min(pose_iterations[pose_idx], max_iterations)
+            )
 
         # generate pan
-        pan_cameras = self._generate_camera_pan(frame_count, poses, pan_angle_coverage=90, anchor_camera=anchor_camera)
+        pan_cameras = self._generate_camera_pan(
+            frame_count, poses, pan_angle_coverage=90, anchor_camera=anchor_camera
+        )
 
         _logger.info("Rendering final camera sweep.")
 
         for pan_idx, pan_camera in enumerate(pan_cameras):
-
             # update observing camera
             self.scene_camera.update_camera(pan_camera)
 
@@ -1084,8 +1228,12 @@ class ACEVisualizer:
 
             if current_frame is not None:
                 # finalize frame
-                current_frame = self._draw_reg_iteration_hist(current_frame, self.reloc_conf_buffer)
-                current_frame = self._write_sweep_captions(current_frame, len(poses), total_poses)
+                current_frame = self._draw_reg_iteration_hist(
+                    current_frame, self.reloc_conf_buffer
+                )
+                current_frame = self._write_sweep_captions(
+                    current_frame, len(poses), total_poses
+                )
 
                 self._save_frame(current_frame)
 

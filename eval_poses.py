@@ -11,8 +11,8 @@ import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-import eval_poses_util as tutil
 import dataset_io
+import eval_poses_util as tutil
 
 _logger = logging.getLogger(__name__)
 
@@ -21,41 +21,69 @@ def _strtobool(x):
     return bool(strtobool(x))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Setup logging.
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(
-        description='Compute pose error metrics for an ACE pose file using (pseudo) ground truth pose files.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        description="Compute pose error metrics for an ACE pose file using (pseudo) ground truth pose files.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
 
-    parser.add_argument('ace_pose_file', type=Path, help='Path to an ACE pose file with one line per image.')
+    parser.add_argument(
+        "ace_pose_file",
+        type=Path,
+        help="Path to an ACE pose file with one line per image.",
+    )
 
-    parser.add_argument('gt_pose_files', type=str,
-                        help="Glob pattern for pose files, e.g. 'datasets/scene/*.txt', each file is assumed to "
-                             "contain a 4x4 pose matrix, cam2world, correspondence with rgb files in the ACE pose "
-                             "file is assumed by alphabetical order")
+    parser.add_argument(
+        "gt_pose_files",
+        type=str,
+        help="Glob pattern for pose files, e.g. 'datasets/scene/*.txt', each file is assumed to "
+        "contain a 4x4 pose matrix, cam2world, correspondence with rgb files in the ACE pose "
+        "file is assumed by alphabetical order",
+    )
 
-    parser.add_argument('--estimate_alignment', type=_strtobool, default=True,
-                        help='Estimate rigid body transformation between estimates and ground truth.')
+    parser.add_argument(
+        "--estimate_alignment",
+        type=_strtobool,
+        default=True,
+        help="Estimate rigid body transformation between estimates and ground truth.",
+    )
 
-    parser.add_argument('--estimate_alignment_scale', type=_strtobool, default=True,
-                        help='Estimate similarity transformation when estimating alignment')
+    parser.add_argument(
+        "--estimate_alignment_scale",
+        type=_strtobool,
+        default=True,
+        help="Estimate similarity transformation when estimating alignment",
+    )
 
-    parser.add_argument('--estimate_alignment_conf_threshold', type=float, default=500,
-                        help='Only consider pose estimates with higher confidence when estimates the alignment.')
+    parser.add_argument(
+        "--estimate_alignment_conf_threshold",
+        type=float,
+        default=500,
+        help="Only consider pose estimates with higher confidence when estimates the alignment.",
+    )
 
-    parser.add_argument('--pose_error_thresh_t', type=float, default=0.05,
-                        help='Pose threshold (translation) for evaluation and alignment')
+    parser.add_argument(
+        "--pose_error_thresh_t",
+        type=float,
+        default=0.05,
+        help="Pose threshold (translation) for evaluation and alignment",
+    )
 
-    parser.add_argument('--pose_error_thresh_r', type=float, default=5,
-                        help='Pose threshold (rotation) for evaluation and alignment')
+    parser.add_argument(
+        "--pose_error_thresh_r",
+        type=float,
+        default=5,
+        help="Pose threshold (rotation) for evaluation and alignment",
+    )
 
     opt = parser.parse_args()
 
     _logger.info("Reading ACE pose file.")
 
-    with open(opt.ace_pose_file, 'r') as f:
+    with open(opt.ace_pose_file, "r") as f:
         ace_pose_data = f.readlines()
 
     # Dict mapping file name to ACE estimate
@@ -112,14 +140,20 @@ if __name__ == '__main__':
         pose_correspondences = []
 
         # walk through ACE estimates and GT poses in parallel
-        for (ace_pose, ace_confidence), gt_pose in zip(sorted_ace_poses, sorted_gt_poses):
-            pose_correspondences.append((tutil.TestEstimate(
-                pose_est=ace_pose,
-                pose_gt=gt_pose,
-                confidence=ace_confidence,
-                image_file=None,
-                focal_length=None
-            )))
+        for (ace_pose, ace_confidence), gt_pose in zip(
+            sorted_ace_poses, sorted_gt_poses
+        ):
+            pose_correspondences.append(
+                (
+                    tutil.TestEstimate(
+                        pose_est=ace_pose,
+                        pose_gt=gt_pose,
+                        confidence=ace_confidence,
+                        image_file=None,
+                        focal_length=None,
+                    )
+                )
+            )
 
         alignment_transformation, alignment_scale = tutil.estimate_alignment(
             estimates=pose_correspondences,
@@ -130,14 +164,15 @@ if __name__ == '__main__':
         )
 
         if alignment_transformation is None:
-            _logger.info(f"Alignment requested but failed. Setting all pose errors to {math.inf}.")
+            _logger.info(
+                f"Alignment requested but failed. Setting all pose errors to {math.inf}."
+            )
     else:
         alignment_transformation = np.eye(4)
-        alignment_scale = 1.
+        alignment_scale = 1.0
 
     # Evaluation Loop
     for (ace_pose, ace_confidence), gt_pose in zip(sorted_ace_poses, sorted_gt_poses):
-
         if alignment_transformation is not None:
             # Apply alignment transformation to GT pose
             gt_pose = alignment_transformation @ gt_pose
@@ -161,11 +196,13 @@ if __name__ == '__main__':
             pose_gt = None
             t_err, r_err = math.inf, math.inf
 
-        _logger.info(f"Rotation Error: {r_err:.2f}deg, Translation Error: {t_err * 100:.1f}cm")
+        _logger.info(
+            f"Rotation Error: {r_err:.2f}deg, Translation Error: {t_err * 100:.1f}cm"
+        )
 
         # Save the errors.
         rErrs.append(r_err)
-        tErrs.append(t_err * 100) # in cm
+        tErrs.append(t_err * 100)  # in cm
 
         # Check various thresholds.
         if r_err < opt.pose_error_thresh_r and t_err < opt.pose_error_thresh_t:
@@ -187,5 +224,5 @@ if __name__ == '__main__':
     _logger.info("===================================================")
     _logger.info("Test complete.")
 
-    _logger.info(f'Accuracy: {accuracy:.1f}%')
+    _logger.info(f"Accuracy: {accuracy:.1f}%")
     _logger.info(f"Median Error: {median_rErr:.1f}deg, {median_tErr:.1f}cm")

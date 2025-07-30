@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import os
-from pathlib import Path
 import shutil
 import subprocess
-import pycolmap
+from pathlib import Path
+
 import numpy as np
+import pycolmap
 
 source_url = "https://storage.googleapis.com/gresearch/refraw360/360_v2.zip"
 
@@ -34,7 +35,9 @@ def download_and_extract(target_path: Path):
     tmp_dst_path.rename(target_path)
 
 
-def process_split(in_dir: Path, out_dir: Path, images_folder: str, split_step: int, is_train: bool):
+def process_split(
+    in_dir: Path, out_dir: Path, images_folder: str, split_step: int, is_train: bool
+):
     # Resolve paths to create relative symlinks.
     in_dir = in_dir.resolve()
     out_dir = out_dir.resolve()
@@ -65,7 +68,8 @@ def process_split(in_dir: Path, out_dir: Path, images_folder: str, split_step: i
     reconstruction_path = in_dir / "sparse" / "0"
     reconstruction = pycolmap.Reconstruction(reconstruction_path)
     print(
-        f"Loaded reconstruction from: {reconstruction_path} with {len(reconstruction.cameras)} cameras and {len(reconstruction.images)} images.")
+        f"Loaded reconstruction from: {reconstruction_path} with {len(reconstruction.cameras)} cameras and {len(reconstruction.images)} images."
+    )
 
     # Process each image.
     out_img_idx = 0
@@ -96,7 +100,9 @@ def process_split(in_dir: Path, out_dir: Path, images_folder: str, split_step: i
         calibration_file = calibration_path / f"{out_image_prefix}.txt"
 
         # Scale intrinsics
-        calibration_matrix = reconstruction.cameras[image.camera_id].calibration_matrix()
+        calibration_matrix = reconstruction.cameras[
+            image.camera_id
+        ].calibration_matrix()
         calibration_matrix[0] /= downsampling_factor
         calibration_matrix[1] /= downsampling_factor
 
@@ -120,20 +126,38 @@ def process_split(in_dir: Path, out_dir: Path, images_folder: str, split_step: i
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Download and setup the Mip-NeRF 360 dataset.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description="Download and setup the Mip-NeRF 360 dataset.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument('--setup_ace_structure', action='store_true',
-                        help='Create a copy of the dataset in the ACE format in 7scenes_ace. '
-                             'Otherwise, the dataset is left in the original format in 7scenes.')
-    parser.add_argument("--images_folder", type=str, default="images_4", help="Which version of the RGB images to use")
-    parser.add_argument("--test_step", type=int, default=8, help="Select 1 test image every N images")
+    parser.add_argument(
+        "--setup_ace_structure",
+        action="store_true",
+        help="Create a copy of the dataset in the ACE format in 7scenes_ace. "
+        "Otherwise, the dataset is left in the original format in 7scenes.",
+    )
+    parser.add_argument(
+        "--images_folder",
+        type=str,
+        default="images_4",
+        help="Which version of the RGB images to use",
+    )
+    parser.add_argument(
+        "--test_step", type=int, default=8, help="Select 1 test image every N images"
+    )
     args = parser.parse_args()
 
-    print("\n############################################################################")
-    print("# Please make sure to check this dataset's license before using it!        #")
-    print("# https://jonbarron.info/mipnerf360/                                       #")
-    print("############################################################################\n\n")
+    print(
+        "\n############################################################################"
+    )
+    print(
+        "# Please make sure to check this dataset's license before using it!        #"
+    )
+    print(
+        "# https://jonbarron.info/mipnerf360/                                       #"
+    )
+    print(
+        "############################################################################\n\n"
+    )
 
     license_response = input('Please confirm with "yes" or abort. ')
     if not (license_response == "yes" or license_response == "y"):
@@ -166,7 +190,11 @@ if __name__ == "__main__":
 
         # Process train.
         print(f"Processing train split.")
-        process_split(scene_source_dir, scene_target_dir / "train", images_folder, test_step, True)
+        process_split(
+            scene_source_dir, scene_target_dir / "train", images_folder, test_step, True
+        )
 
         print(f"Processing test split.")
-        process_split(scene_source_dir, scene_target_dir / "test", images_folder, test_step, False)
+        process_split(
+            scene_source_dir, scene_target_dir / "test", images_folder, test_step, False
+        )

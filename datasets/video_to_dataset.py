@@ -1,8 +1,8 @@
 #! /usr/bin/env python3
 
-import os
-import glob
 import argparse
+import glob
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -10,7 +10,7 @@ from pathlib import Path
 
 def find_mp4_files(directory):
     # Use os.path.join to ensure the path is constructed correctly for the OS
-    search_path = os.path.join(directory, '*.mp4')
+    search_path = os.path.join(directory, "*.mp4")
 
     # Use glob.glob to find all .mp4 files
     mp4_files = glob.glob(search_path)
@@ -18,11 +18,17 @@ def find_mp4_files(directory):
     return mp4_files
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Find all .mp4 files in a directory and convert them to a dataset.')
-    parser.add_argument('directory', type=str, help='The directory to search')
-    parser.add_argument('--min_side_length', type=int, default=540,
-                        help='The minimum side length of the output frames.')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Find all .mp4 files in a directory and convert them to a dataset."
+    )
+    parser.add_argument("directory", type=str, help="The directory to search")
+    parser.add_argument(
+        "--min_side_length",
+        type=int,
+        default=540,
+        help="The minimum side length of the output frames.",
+    )
 
     args = parser.parse_args()
 
@@ -34,7 +40,6 @@ if __name__ == '__main__':
 
     # iterate over all .mp4 files
     for mp4_file in mp4_files:
-
         # check whether a folder with the same name exists
         folder_name = Path(mp4_file).stem
         folder_path = Path(args.directory) / ("video_" + folder_name)
@@ -47,12 +52,15 @@ if __name__ == '__main__':
             subprocess.run(
                 [
                     ffmpeg_path,
-                    "-i", mp4_file,
+                    "-i",
+                    mp4_file,
                     "-vf",
                     f"scale=w='if(lte(iw,ih),{args.min_side_length},-1)':h='if(lte(iw,ih),-1,{args.min_side_length})'",
-                    "-qmin", "1",
-                    "-q:v", "1",
-                    f"{folder_path}/%06d.jpg"
+                    "-qmin",
+                    "1",
+                    "-q:v",
+                    "1",
+                    f"{folder_path}/%06d.jpg",
                 ],
                 check=True,
             )

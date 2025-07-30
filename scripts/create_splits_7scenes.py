@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # Copyright © Niantic, Inc. 2024.
 
+import argparse
+import glob
 import json
 import logging
-import argparse
 import os
 from pathlib import Path
-import glob
 
 _logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ def read_split_file(split_file: Path):
     """
 
     # read the split file
-    with open(split_file, 'r') as f:
+    with open(split_file, "r") as f:
         data = f.readlines()
 
     # convert the file entry to a dataset sequence folder
@@ -53,18 +53,20 @@ def process_split(split_file: Path, scene_folder: Path):
     return seq_files
 
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     # Setup logging levels.
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(
-        description='Creat benchmarking train/test split files for 7Scenes.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        description="Creat benchmarking train/test split files for 7Scenes.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
 
-    parser.add_argument('dataset_root', type=Path, help="Root folder of the dataset.")
+    parser.add_argument("dataset_root", type=Path, help="Root folder of the dataset.")
 
-    parser.add_argument('output_folder', type=Path, help="Where to store the split files.")
+    parser.add_argument(
+        "output_folder", type=Path, help="Where to store the split files."
+    )
 
     args = parser.parse_args()
 
@@ -72,27 +74,27 @@ if __name__ == '__main__':
     os.makedirs(args.output_folder, exist_ok=True)
 
     # Scenes of 7Scenes as sub folders of the dataset root
-    scene_folders = [f for f in args.dataset_root.glob('*/') if f.is_dir()]
+    scene_folders = [f for f in args.dataset_root.glob("*/") if f.is_dir()]
 
     # Process each scene
     for scene_folder in scene_folders:
-
         _logger.info(f"Processing scene {scene_folder.name}.")
 
         # Read the split file
-        test_files = process_split(Path('TestSplit.txt'), scene_folder)
-        train_files = process_split(Path('TrainSplit.txt'), scene_folder)
+        test_files = process_split(Path("TestSplit.txt"), scene_folder)
+        train_files = process_split(Path("TrainSplit.txt"), scene_folder)
 
-        _logger.info(f"Found {len(test_files)} test files and {len(train_files)} train files.")
+        _logger.info(
+            f"Found {len(test_files)} test files and {len(train_files)} train files."
+        )
 
         # Create the split info
-        split_info = {
-            'train_filenames': train_files,
-            'test_filenames': test_files
-        }
+        split_info = {"train_filenames": train_files, "test_filenames": test_files}
 
         # Store the split info in a JSON file
-        _logger.info(f"Writing split info to {args.output_folder / f'{scene_folder.name}.json'}")
+        _logger.info(
+            f"Writing split info to {args.output_folder / f'{scene_folder.name}.json'}"
+        )
 
-        with open(args.output_folder / f"7scenes_{scene_folder.name}.json", 'w') as f:
+        with open(args.output_folder / f"7scenes_{scene_folder.name}.json", "w") as f:
             json.dump(split_info, f)

@@ -5,16 +5,15 @@ import random
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
-from skimage import color
-from skimage import io
-from skimage.transform import rotate, resize
+from PIL import Image
+from skimage import color, io
+from skimage.transform import resize, rotate
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import default_collate
 from torchvision import transforms
-from PIL import Image
 
-from ace_network import Regressor
 import dataset_io
+from ace_network import Regressor
 
 _logger = logging.getLogger(__name__)
 
@@ -25,24 +24,25 @@ class CamLocDataset(Dataset):
     Access to images, calibration and poses. Optionally, ground truth scene coordinates from depth.
     """
 
-    def __init__(self,
-                 rgb_files,
-                 pose_files=None,
-                 ace_pose_file=None,
-                 ace_pose_file_conf_threshold=None,
-                 pose_seed=-1,
-                 depth_files=None,
-                 use_depth=False,
-                 augment=False,
-                 aug_rotation=15,
-                 aug_scale_min=2 / 3,
-                 aug_scale_max=3 / 2,
-                 aug_black_white=0.1,
-                 aug_color=0.3,
-                 image_short_size=480,
-                 use_half=True,
-                 use_heuristic_focal_length=False
-                 ):
+    def __init__(
+        self,
+        rgb_files,
+        pose_files=None,
+        ace_pose_file=None,
+        ace_pose_file_conf_threshold=None,
+        pose_seed=-1,
+        depth_files=None,
+        use_depth=False,
+        augment=False,
+        aug_rotation=15,
+        aug_scale_min=2 / 3,
+        aug_scale_max=3 / 2,
+        aug_black_white=0.1,
+        aug_color=0.3,
+        image_short_size=480,
+        use_half=True,
+        use_heuristic_focal_length=False,
+    ):
         """Constructor.
 
         Parameters:
@@ -83,35 +83,49 @@ class CamLocDataset(Dataset):
         self.external_focal_length = None
 
         if use_heuristic_focal_length:
-            _logger.info(f"Overwriting focal length with heuristic derived from image dimensions.")
+            _logger.info(
+                f"Overwriting focal length with heuristic derived from image dimensions."
+            )
 
         # Loading dataset depending on what arguments are provided.
         if ace_pose_file is not None:
             _logger.info(f"Loading dataset from pose file: {ace_pose_file}")
             dataset_info = dataset_io.load_dataset_ace(
-                pose_file=ace_pose_file, confidence_threshold=ace_pose_file_conf_threshold)
+                pose_file=ace_pose_file,
+                confidence_threshold=ace_pose_file_conf_threshold,
+            )
 
             self.rgb_files, self.poses, self.focal_lengths = dataset_info
         else:
             _logger.info(f"Loading RGB files from: {rgb_files}")
             self.rgb_files = dataset_io.get_files_from_glob(rgb_files)
-            self.poses = dataset_io.load_pose_files(pose_files) if pose_files is not None else []
+            self.poses = (
+                dataset_io.load_pose_files(pose_files) if pose_files is not None else []
+            )
 
             if len(self.poses) > 0:
                 # Remove invalid poses and corresponding RGB files.
-                self.rgb_files, self.poses = dataset_io.remove_invalid_poses(self.rgb_files, self.poses)
+                self.rgb_files, self.poses = dataset_io.remove_invalid_poses(
+                    self.rgb_files, self.poses
+                )
 
             # Focal length can be set via an extra function call, or heuristic will be used
             self.focal_lengths = []
 
         # Load depth files if available.
-        self.depth_files = dataset_io.get_files_from_glob(depth_files) if depth_files is not None else []
+        self.depth_files = (
+            dataset_io.get_files_from_glob(depth_files)
+            if depth_files is not None
+            else []
+        )
 
         # Reduce dataset to single image if pose_seed is set.
         if pose_seed > -1:
             seed_index = int(pose_seed * len(self.rgb_files))
 
-            _logger.info(f"Overwriting dataset with single image: {seed_index} - {self.rgb_files[seed_index]}")
+            _logger.info(
+                f"Overwriting dataset with single image: {seed_index} - {self.rgb_files[seed_index]}"
+            )
 
             self.rgb_files = [self.rgb_files[seed_index]]
             self.poses = [torch.eye(4, 4)]
@@ -133,7 +147,9 @@ class CamLocDataset(Dataset):
 
         # At this stage, number of poses and number of images should match
         if len(self.poses) != len(self.rgb_files):
-            raise ValueError(f"Number of poses ({len(self.poses)}) does not match number of images ({len(self.rgb_files)}).")
+            raise ValueError(
+                f"Number of poses ({len(self.poses)}) does not match number of images ({len(self.rgb_files)})."
+            )
 
         # Create grid of 2D pixel positions used when generating scene coordinates from depth.
         if self.use_depth:
@@ -143,24 +159,34 @@ class CamLocDataset(Dataset):
 
         # Image transformations. Excluding scale since that can vary batch-by-batch.
         if self.augment:
-            self.image_transform = transforms.Compose([
-                transforms.Grayscale(),
-                transforms.ColorJitter(brightness=self.aug_black_white, contrast=self.aug_black_white),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.4],  # statistics calculated over 7scenes training set, should generalize fairly well
-                    std=[0.25]
-                ),
-            ])
+            self.image_transform = transforms.Compose(
+                [
+                    transforms.Grayscale(),
+                    transforms.ColorJitter(
+                        brightness=self.aug_black_white, contrast=self.aug_black_white
+                    ),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[
+                            0.4
+                        ],  # statistics calculated over 7scenes training set, should generalize fairly well
+                        std=[0.25],
+                    ),
+                ]
+            )
         else:
-            self.image_transform = transforms.Compose([
-                transforms.Grayscale(),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.4],  # statistics calculated over 7scenes training set, should generalize fairly well
-                    std=[0.25]
-                ),
-            ])
+            self.image_transform = transforms.Compose(
+                [
+                    transforms.Grayscale(),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[
+                            0.4
+                        ],  # statistics calculated over 7scenes training set, should generalize fairly well
+                        std=[0.25],
+                    ),
+                ]
+            )
 
         # We use this to iterate over all frames.
         self.valid_file_indices = np.arange(len(self.rgb_files))
@@ -174,9 +200,13 @@ class CamLocDataset(Dataset):
     @staticmethod
     def _create_prediction_grid():
         # Assumes all input images have a resolution smaller than 5000x5000.
-        prediction_grid = np.zeros((2,
-                                    math.ceil(5000 / Regressor.OUTPUT_SUBSAMPLE),
-                                    math.ceil(5000 / Regressor.OUTPUT_SUBSAMPLE)))
+        prediction_grid = np.zeros(
+            (
+                2,
+                math.ceil(5000 / Regressor.OUTPUT_SUBSAMPLE),
+                math.ceil(5000 / Regressor.OUTPUT_SUBSAMPLE),
+            )
+        )
 
         for x in range(0, prediction_grid.shape[2]):
             for y in range(0, prediction_grid.shape[1]):
@@ -194,7 +224,7 @@ class CamLocDataset(Dataset):
         return image
 
     @staticmethod
-    def _rotate_image(image, angle, order, mode='constant'):
+    def _rotate_image(image, angle, order, mode="constant"):
         # Image is a torch tensor (CxHxW), convert it to numpy as HxWxC.
         image = image.permute(1, 2, 0).numpy()
         # Apply rotation.
@@ -221,7 +251,7 @@ class CamLocDataset(Dataset):
             _logger.warning(f"Ignored {invalid_poses} poses from mean computation.")
 
         # Avg.
-        mean_cam_center /= (len(self) - invalid_poses)
+        mean_cam_center /= len(self) - invalid_poses
         return mean_cam_center
 
     def _load_image(self, idx):
@@ -271,7 +301,7 @@ class CamLocDataset(Dataset):
             width, height = self.get_image_size(idx)
 
             # we use 70% of the diagonal as focal length
-            return math.sqrt(width ** 2 + height ** 2) * 0.7
+            return math.sqrt(width**2 + height**2) * 0.7
         else:
             return self.focal_lengths[idx]
 
@@ -307,10 +337,13 @@ class CamLocDataset(Dataset):
                 depth = dataset_io.estimate_depth(self.depth_model, image)
         else:
             # set coords to all zeros as a default, training loop will catch this case
-            coords = torch.zeros((
-                3,
-                math.ceil(image.size[0] / Regressor.OUTPUT_SUBSAMPLE),
-                math.ceil(image.size[1] / Regressor.OUTPUT_SUBSAMPLE)))
+            coords = torch.zeros(
+                (
+                    3,
+                    math.ceil(image.size[0] / Regressor.OUTPUT_SUBSAMPLE),
+                    math.ceil(image.size[1] / Regressor.OUTPUT_SUBSAMPLE),
+                )
+            )
 
         # Apply remaining transforms.
         image = self.image_transform(image)
@@ -324,17 +357,17 @@ class CamLocDataset(Dataset):
             angle = random.uniform(-self.aug_rotation, self.aug_rotation)
 
             # Rotate input image and mask.
-            image = self._rotate_image(image, angle, 1, 'reflect')
-            image_mask = self._rotate_image(image_mask, angle, order=1, mode='constant')
+            image = self._rotate_image(image, angle, 1, "reflect")
+            image_mask = self._rotate_image(image_mask, angle, order=1, mode="constant")
 
             # If we loaded the GT scene coordinates.
             if self.use_depth:
                 # rotate and scale depth maps
                 depth = resize(depth, image.shape[1:], order=0)
-                depth = rotate(depth, angle, order=0, mode='constant')
+                depth = rotate(depth, angle, order=0, mode="constant")
 
             # Rotate ground truth camera pose as well.
-            angle = angle * math.pi / 180.
+            angle = angle * math.pi / 180.0
             # Create a rotation matrix.
             pose_rot = torch.eye(4)
             pose_rot[0, 0] = math.cos(angle)
@@ -350,16 +383,22 @@ class CamLocDataset(Dataset):
             offsetX = int(Regressor.OUTPUT_SUBSAMPLE / 2)
             offsetY = int(Regressor.OUTPUT_SUBSAMPLE / 2)
 
-            coords = torch.zeros((
-                3,
-                math.ceil(image.shape[1] / Regressor.OUTPUT_SUBSAMPLE),
-                math.ceil(image.shape[2] / Regressor.OUTPUT_SUBSAMPLE)))
+            coords = torch.zeros(
+                (
+                    3,
+                    math.ceil(image.shape[1] / Regressor.OUTPUT_SUBSAMPLE),
+                    math.ceil(image.shape[2] / Regressor.OUTPUT_SUBSAMPLE),
+                )
+            )
 
             # subsample to network output size
-            depth = depth[offsetY::Regressor.OUTPUT_SUBSAMPLE, offsetX::Regressor.OUTPUT_SUBSAMPLE]
+            depth = depth[
+                offsetY :: Regressor.OUTPUT_SUBSAMPLE,
+                offsetX :: Regressor.OUTPUT_SUBSAMPLE,
+            ]
 
             # construct x and y coordinates of camera coordinate
-            xy = self.prediction_grid[:, :depth.shape[0], :depth.shape[1]].copy()
+            xy = self.prediction_grid[:, : depth.shape[0], : depth.shape[1]].copy()
             # add random pixel shift
             xy[0] += offsetX
             xy[1] += offsetY
@@ -386,7 +425,7 @@ class CamLocDataset(Dataset):
             sc[:, depth > 1000] = 0
             sc = torch.from_numpy(sc[0:3])
 
-            coords[:, :sc.shape[1], :sc.shape[2]] = sc
+            coords[:, : sc.shape[1], : sc.shape[2]] = sc
 
         # Convert to half if needed.
         if self.use_half and torch.cuda.is_available():
@@ -400,7 +439,9 @@ class CamLocDataset(Dataset):
         pose_rot_inv = pose_rot.inverse()
 
         # Final check of poses before returning.
-        if not dataset_io.check_pose(pose_inv) or not dataset_io.check_pose(pose_rot_inv):
+        if not dataset_io.check_pose(pose_inv) or not dataset_io.check_pose(
+            pose_rot_inv
+        ):
             raise ValueError(f"Pose at index {idx} is invalid.")
 
         # Create the intrinsics matrix.
@@ -414,7 +455,17 @@ class CamLocDataset(Dataset):
         # Also need the inverse.
         intrinsics_inv = intrinsics.inverse()
 
-        return image, image_mask, pose_inv, pose_rot_inv, intrinsics, intrinsics_inv, coords, str(self.rgb_files[idx]), idx
+        return (
+            image,
+            image_mask,
+            pose_inv,
+            pose_rot_inv,
+            intrinsics,
+            intrinsics_inv,
+            coords,
+            str(self.rgb_files[idx]),
+            idx,
+        )
 
     def __len__(self):
         return len(self.valid_file_indices)

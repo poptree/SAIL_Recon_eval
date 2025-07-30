@@ -57,8 +57,8 @@ namespace dsacstar
 	* @return Matrix where each entry contains the original 2D image position.
 	*/
 	cv::Mat_<cv::Point2i> createSampling(
-		unsigned outW, unsigned outH, 
-		int subSampling, 
+		unsigned outW, unsigned outH,
+		int subSampling,
 		int shiftX, int shiftY)
 	{
 		cv::Mat_<cv::Point2i> sampling(outH, outW);
@@ -102,12 +102,12 @@ namespace dsacstar
 		if(trans.type() == 0) trans= cv::Mat_<double>::zeros(1, 3);
 
 		if(!cv::solvePnP(
-			objPts, 
-			imgPts, 
-			camMat, 
-			distCoeffs, 
-			rot, 
-			trans, 
+			objPts,
+			imgPts,
+			camMat,
+			distCoeffs,
+			rot,
+			trans,
 			extrinsicGuess,
 			methodFlag))
 		{
@@ -140,7 +140,7 @@ namespace dsacstar
 		unsigned maxTries,
 		float inlierThreshold,
 		std::vector<dsacstar::pose_t>& hypotheses,
-		std::vector<std::vector<cv::Point2i>>& sampledPoints,     
+		std::vector<std::vector<cv::Point2i>>& sampledPoints,
 		std::vector<std::vector<cv::Point2f>>& imgPts,
 		std::vector<std::vector<cv::Point3f>>& objPts)
 	{
@@ -148,7 +148,7 @@ namespace dsacstar
 		int imW = sceneCoordinates.size(3);
 
 		// keep track of the points each hypothesis is sampled from
-		sampledPoints.resize(ransacHypotheses);     
+		sampledPoints.resize(ransacHypotheses);
 		imgPts.resize(ransacHypotheses);
 		objPts.resize(ransacHypotheses);
 		hypotheses.resize(ransacHypotheses);
@@ -172,24 +172,24 @@ namespace dsacstar
 				int y = irand(0, imH);
 
 				// 2D location in the original RGB image
-				imgPts[h].push_back(sampling(y, x)); 
+				imgPts[h].push_back(sampling(y, x));
 				// 3D object coordinate
 				objPts[h].push_back(cv::Point3f(
 					sceneCoordinates[batchIdx][0][y][x],
 					sceneCoordinates[batchIdx][1][y][x],
-					sceneCoordinates[batchIdx][2][y][x])); 
+					sceneCoordinates[batchIdx][2][y][x]));
 				// 2D pixel location in the subsampled image
-				sampledPoints[h].push_back(cv::Point2i(x, y)); 
+				sampledPoints[h].push_back(cv::Point2i(x, y));
 			}
 
 			if(!dsacstar::safeSolvePnP(
-				objPts[h], 
-				imgPts[h], 
-				camMat, 
-				cv::Mat(), 
-				hypotheses[h].first, 
-				hypotheses[h].second, 
-				false, 
+				objPts[h],
+				imgPts[h],
+				camMat,
+				cv::Mat(),
+				hypotheses[h].first,
+				hypotheses[h].second,
+				false,
 				cv::SOLVEPNP_P3P))
 			{
 				continue;
@@ -197,11 +197,11 @@ namespace dsacstar
 
 			// check reconstruction, 4 sampled points should be reconstructed perfectly
 			cv::projectPoints(
-				objPts[h], 
-				hypotheses[h].first, 
-				hypotheses[h].second, 
-				camMat, 
-				cv::Mat(), 
+				objPts[h],
+				hypotheses[h].first,
+				hypotheses[h].second,
+				camMat,
+				cv::Mat(),
 				projections);
 
 			bool foundOutlier = false;
@@ -216,8 +216,8 @@ namespace dsacstar
 			if(foundOutlier)
 				continue;
 			else
-				break;			
-		}		
+				break;
+		}
 	}
 
 //	/**
@@ -367,14 +367,14 @@ namespace dsacstar
 		cv::Mat_<float> reproErrs = cv::Mat_<float>::zeros(sampling.size());
 
 		std::vector<cv::Point3f> points3D;
-		std::vector<cv::Point2f> projections;	
+		std::vector<cv::Point2f> projections;
 		std::vector<cv::Point2f> points2D;
 		std::vector<cv::Point2f> sources2D;
 
 		// collect 2D-3D correspondences
 		for(int x = 0; x < sampling.cols; x++)
 		for(int y = 0; y < sampling.rows; y++)
-		{		
+		{
 			// get 2D location of the original RGB frame
 			cv::Point2f pt2D(sampling(y, x).x, sampling(y, x).y);
 
@@ -388,28 +388,28 @@ namespace dsacstar
 		}
 
 		if(points3D.empty()) return reproErrs;
-	    
+
 	    if(!calcJ)
 	    {
 			// project object coordinate into the image using the given pose
 			cv::projectPoints(
-				points3D, 
-				hyp.first, 
-				hyp.second, 
-				camMat, 
-				cv::Mat(), 
+				points3D,
+				hyp.first,
+				hyp.second,
+				camMat,
+				cv::Mat(),
 				projections);
 		}
 	    else
 	    {
 	        cv::Mat_<double> projectionsJ;
 	        cv::projectPoints(
-	        	points3D, 
-	        	hyp.first, 
-	        	hyp.second, 
-	        	camMat, 
-	        	cv::Mat(), 
-	        	projections, 
+	        	points3D,
+	        	hyp.first,
+	        	hyp.second,
+	        	camMat,
+	        	cv::Mat(),
+	        	projections,
 	        	projectionsJ);
 
 	        projectionsJ = projectionsJ.colRange(0, 6);
@@ -432,7 +432,7 @@ namespace dsacstar
 	            dNdH = dNdP * projectionsJ.rowRange(2 * ptIdx, 2 * ptIdx + 2);
 	            dNdH.copyTo(jacobeanHyp.row(ptIdx));
 	        }
-	    }		
+	    }
 
 		// measure reprojection errors
 		for(unsigned p = 0; p < projections.size(); p++)
@@ -442,7 +442,7 @@ namespace dsacstar
 			reproErrs(sources2D[p].y, sources2D[p].x) = l;
 		}
 
-		return reproErrs;    
+		return reproErrs;
 	}
 
 //	/**
@@ -533,15 +533,15 @@ namespace dsacstar
 		cv::Mat_<float> localReproErrs = reproErrs.clone();
 		int batchIdx = 0; // only batch size=1 supported atm
 
-		// refine as long as inlier count increases 
-		unsigned bestInliers = 4; 
+		// refine as long as inlier count increases
+		unsigned bestInliers = 4;
 
 		// refine current hypothesis
 		for(unsigned rStep = 0; rStep < maxRefSteps; rStep++)
 		{
 			// collect inliers
 			std::vector<cv::Point2f> localImgPts;
-			std::vector<cv::Point3f> localObjPts; 
+			std::vector<cv::Point3f> localObjPts;
 			cv::Mat_<int> localInlierMap = cv::Mat_<int>::zeros(localReproErrs.size());
 
 			for(int x = 0; x < sampling.cols; x++)
@@ -568,15 +568,15 @@ namespace dsacstar
 			hypUpdate.second = hypothesis.second.clone();
 
     		if(!dsacstar::safeSolvePnP(
-				localObjPts, 
-				localImgPts, 
-				camMat, 
-				cv::Mat(), 
-				hypUpdate.first, 
-				hypUpdate.second, 
-				true, 
-				(localImgPts.size() > 4) ? 
-					cv::SOLVEPNP_ITERATIVE : 
+				localObjPts,
+				localImgPts,
+				camMat,
+				cv::Mat(),
+				hypUpdate.first,
+				hypUpdate.second,
+				true,
+				(localImgPts.size() > 4) ?
+					cv::SOLVEPNP_ITERATIVE :
 					cv::SOLVEPNP_P3P))
                 		break; //abort if PnP fails
 
@@ -588,12 +588,12 @@ namespace dsacstar
 
 			localReproErrs = dsacstar::getReproErrs(
 				sceneCoordinates,
-				hypothesis, 
-				sampling, 
+				hypothesis,
+				sampling,
 				camMat,
 				maxReproj,
 				jacobeanDummy);
-		}			
+		}
 	}
 
 //	/**
@@ -729,7 +729,7 @@ namespace dsacstar
 		std::map<double, int> cumProb;
 		double probSum = 0;
 		double maxProb = -1;
-		double maxIdx = 0; 
+		double maxIdx = 0;
 
 		for(unsigned idx = 0; idx < probs.size(); idx++)
 		{
@@ -798,7 +798,7 @@ namespace dsacstar
 	{
 	    double avg = 0;
 	    int count = 0;
-	    
+
 	    for(int x = 0; x < mat.cols; x++)
 	    for(int y = 0; y < mat.rows; y++)
 	    {
@@ -809,7 +809,7 @@ namespace dsacstar
 				count++;
 			}
 	    }
-	    
+
 	    return avg / (EPS + count);
 	}
 
@@ -821,7 +821,7 @@ namespace dsacstar
 	double getMax(const cv::Mat_<double>& mat)
 	{
 	    double m = -1;
-	    
+
 	    for(int x = 0; x < mat.cols; x++)
 	    for(int y = 0; y < mat.rows; y++)
 	    {
@@ -829,7 +829,7 @@ namespace dsacstar
 			if(m < 0 || val > m)
 			  m = val;
 	    }
-	    
+
 	    return m;
 	}
 
@@ -841,7 +841,7 @@ namespace dsacstar
 	double getMed(const cv::Mat_<double>& mat)
 	{
 	    std::vector<double> vals;
-	    
+
 	    for(int x = 0; x < mat.cols; x++)
 	    for(int y = 0; y < mat.rows; y++)
 	    {
@@ -849,11 +849,11 @@ namespace dsacstar
 	    	if(entry > EPS) vals.push_back(entry);
 	    }
 
-	    if(vals.empty()) 
+	    if(vals.empty())
 	    	return 0;
 
 	    std::sort(vals.begin(), vals.end());
-	    
+
 	    return vals[vals.size() / 2];
-	}	
+	}
 }

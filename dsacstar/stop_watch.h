@@ -41,36 +41,36 @@ public:
      * @brief Construction. Initializes the stop watch.
      */
     StopWatch(){ init(); }
-  
+
     /**
      * @brief Initialization. Starts the time measurement.
-     * 
+     *
      * @return void
      */
     void init()
     {
 	start = std::chrono::high_resolution_clock::now();
     }
-    
+
     /**
      * @brief Stops and restarts the time measurement.
-     * 
+     *
      * @return float The time in ms since the last init or stop call.
      */
     float stop()
     {
 	std::chrono::high_resolution_clock::time_point now;
 	now = std::chrono::high_resolution_clock::now();
-	
+
 	std::chrono::high_resolution_clock::duration duration = now - start;
-	
+
 	start = now;
-	
+
 	return static_cast<float>(
 	    1000.0 * std::chrono::duration_cast<std::chrono::duration<double>>(
 	    duration).count());
     }
-    
+
 private:
     std::chrono::high_resolution_clock::time_point start; // start time of the current measurement.
 };

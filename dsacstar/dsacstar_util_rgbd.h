@@ -21,23 +21,23 @@ Copyright (c) 2016-present, Facebook Inc. All rights reserved.
 
 All contributions by Facebook:
 Copyright (c) 2016 Facebook Inc.
- 
+
 All contributions by Google:
 Copyright (c) 2015 Google Inc.
 All rights reserved.
- 
+
 All contributions by Yangqing Jia:
 Copyright (c) 2015 Yangqing Jia
 All rights reserved.
- 
+
 All contributions from Caffe:
 Copyright(c) 2013, 2014, 2015, the respective contributors
 All rights reserved.
- 
+
 All other contributions:
 Copyright(c) 2015, 2016 the respective contributors
 All rights reserved.
- 
+
 Caffe2 uses a copyright model similar to Caffe: each contributor holds
 copyright over their contributions to Caffe2. The project versioning records
 all such contribution and copyright details. If a contributor wants to further
@@ -99,10 +99,10 @@ POSSIBILITY OF SUCH DAMAGE.
  */
 
 cv::Mat svd_backward(
-	const std::vector<cv::Mat> &grads, 
-	const cv::Mat& self, 
-	const cv::Mat& raw_u, 
-	const cv::Mat& sigma, 
+	const std::vector<cv::Mat> &grads,
+	const cv::Mat& self,
+	const cv::Mat& raw_u,
+	const cv::Mat& sigma,
 	const cv::Mat& raw_v)
 {
 	auto m = self.rows;
@@ -201,9 +201,9 @@ cv::Mat svd_backward(
  *
  */
 void matMulDerivWrapper(
-	cv::InputArray _Amat, 
-	cv::InputArray _Bmat, 
-	cv::OutputArray _dABdA, 
+	cv::InputArray _Amat,
+	cv::InputArray _Bmat,
+	cv::OutputArray _dABdA,
 	cv::OutputArray _dABdB)
 {
 	cv::Mat A = _Amat.getMat(), B = _Bmat.getMat();
@@ -235,9 +235,9 @@ void matMulDerivWrapper(
  *
  */
 void kabsch(
-	const std::vector<cv::Point3f>& imgdPts, 
-	const std::vector<cv::Point3f>& objPts, 
-	dsacstar::pose_t& extCam, 
+	const std::vector<cv::Point3f>& imgdPts,
+	const std::vector<cv::Point3f>& objPts,
+	dsacstar::pose_t& extCam,
 	cv::OutputArray _jacobean=cv::noArray())
 {
 	unsigned int N = objPts.size();  //number of scene points
@@ -278,7 +278,7 @@ void kabsch(
 			|| std::abs(W.at<float>(0,0)-W.at<float>(2,0)) < 1e-6
 			|| std::abs(W.at<float>(1,0)-W.at<float>(2,0)) < 1e-6)
 		degenerate = true;
-	
+
 	// for correcting rotation matrix to ensure a right-handed coordinate system
 	float d = cv::determinant(U * Vt);
 
@@ -286,7 +286,7 @@ void kabsch(
 				1., 0., 0.,
 				0., 1., 0.,
 				0., 0., d );
-	
+
 	// calculates rotation matrix R
 	R = U * (D * Vt);
 
@@ -300,11 +300,11 @@ void kabsch(
 	// store results
 	extCam.first = cv::Mat_<double>(r.reshape(1, 3));
 	extCam.second = cv::Mat_<double>(t.reshape(1, 3));
-	
+
 	// end here no gradient is required
 	if (!calc)
 		return;
-	
+
 	// if SVD is degenerate, return empty jacobean matrix
 	if (degenerate)
 	{
@@ -329,7 +329,7 @@ void kabsch(
 	matMulDerivWrapper(Pc.t(), Xc, cv::noArray(), dAdXc);
 	matMulDerivWrapper(R, cx.t(), dtdR, dtdcx);
 	matMulDerivWrapper(invN, X, cv::noArray(), dcxdX);
-	
+
 	V = Vt.t();
 	W = W.reshape(1, 1);
 
@@ -383,7 +383,7 @@ void kabsch(
 	drdX.copyTo(jacobean.rowRange(0, 3));
 	dtdX = - (dtdR * dRdX + dtdcx * dcxdX);
 	dtdX.copyTo(jacobean.rowRange(3, 6));
-	
+
 }
 
 /**
@@ -408,9 +408,9 @@ inline bool containsNaNs(const cv::Mat& m)
  *
  */
 void dKabschFD(
-	std::vector<cv::Point3f>& imgdPts, 
-	std::vector<cv::Point3f> objPts, 
-	cv::OutputArray _jacobean, 
+	std::vector<cv::Point3f>& imgdPts,
+	std::vector<cv::Point3f> objPts,
+	cv::OutputArray _jacobean,
 	float eps = 0.001f)
 {
 	_jacobean.create(6, objPts.size()*3, CV_64F);
@@ -458,11 +458,11 @@ void dKabschFD(
 }
 
 void transform(
-	const std::vector<cv::Point3f>& objPts, 
-	const dsacstar::pose_t& transform, 
+	const std::vector<cv::Point3f>& objPts,
+	const dsacstar::pose_t& transform,
 	std::vector<cv::Point3f>& transformedPts)
 {
-	
+
 	cv::Mat rot;
 	cv::Rodrigues(transform.first, rot);
 
@@ -474,8 +474,8 @@ void transform(
 		cv::add(res, transform.second, res);
 
 		transformedPts.push_back(cv::Point3f(
-			res.at<double>(0,0), 
-			res.at<double>(1,0), 
+			res.at<double>(0,0),
+			res.at<double>(1,0),
 			res.at<double>(2,0)));
 	}
 }

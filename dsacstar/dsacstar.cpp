@@ -64,9 +64,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * @return The number of inliers for the output pose.
  */
 int dsacstar_rgb_forward(
-	at::Tensor sceneCoordinatesSrc, 
+	at::Tensor sceneCoordinatesSrc,
 	at::Tensor outPoseSrc,
-	int ransacHypotheses, 
+	int ransacHypotheses,
 	float inlierThreshold,
 	float focalLength,
 	float ppointX,
@@ -80,7 +80,7 @@ int dsacstar_rgb_forward(
 	ThreadRand::init(randomSeed);
 
 	// access to tensor objects
-	dsacstar::coord_t sceneCoordinates = 
+	dsacstar::coord_t sceneCoordinates =
 		sceneCoordinatesSrc.accessor<float, 4>();
 
 	// dimensions of scene coordinate predictions
@@ -92,10 +92,10 @@ int dsacstar_rgb_forward(
 	camMat(0, 0) = focalLength;
 	camMat(1, 1) = focalLength;
 	camMat(0, 2) = ppointX;
-	camMat(1, 2) = ppointY;	
+	camMat(1, 2) = ppointY;
 
 	// calculate original image position for each scene coordinate prediction
-	cv::Mat_<cv::Point2i> sampling = 
+	cv::Mat_<cv::Point2i> sampling =
 		dsacstar::createSampling(imW, imH, subSampling, 0, 0);
 
 	std::cout << BLUETEXT("Sampling " << ransacHypotheses << " hypotheses.") << std::endl;
@@ -103,7 +103,7 @@ int dsacstar_rgb_forward(
 
 	// sample RANSAC hypotheses
 	std::vector<dsacstar::pose_t> hypotheses;
-	std::vector<std::vector<cv::Point2i>> sampledPoints;  
+	std::vector<std::vector<cv::Point2i>> sampledPoints;
 	std::vector<std::vector<cv::Point2f>> imgPts;
 	std::vector<std::vector<cv::Point3f>> objPts;
 
@@ -119,19 +119,19 @@ int dsacstar_rgb_forward(
 		imgPts,
 		objPts);
 
-	std::cout << "Done in " << stopW.stop() / 1000 << "s." << std::endl;	
+	std::cout << "Done in " << stopW.stop() / 1000 << "s." << std::endl;
 	std::cout << BLUETEXT("Calculating scores.") << std::endl;
-    
+
 	// compute reprojection error images
 	std::vector<cv::Mat_<float>> reproErrs(ransacHypotheses);
 	cv::Mat_<double> jacobeanDummy;
 
-	#pragma omp parallel for 
+	#pragma omp parallel for
 	for(unsigned h = 0; h < hypotheses.size(); h++)
     	reproErrs[h] = dsacstar::getReproErrs(
 		sceneCoordinates,
-		hypotheses[h], 
-		sampling, 
+		hypotheses[h],
+		sampling,
 		camMat,
 		maxReproj,
 		jacobeanDummy);
@@ -143,14 +143,14 @@ int dsacstar_rgb_forward(
     	inlierAlpha);
 
 	std::cout << "Done in " << stopW.stop() / 1000 << "s." << std::endl;
-	std::cout << BLUETEXT("Drawing final hypothesis.") << std::endl;	
+	std::cout << BLUETEXT("Drawing final hypothesis.") << std::endl;
 
 	// apply soft max to scores to get a distribution
 	std::vector<double> hypProbs = dsacstar::softMax(scores);
 	double hypEntropy = dsacstar::entropy(hypProbs); // measure distribution entropy
 	int hypIdx = dsacstar::draw(hypProbs, false); // select winning hypothesis
 
-	std::cout << "Soft inlier count: " << scores[hypIdx] << " (Selection Probability: " << (int) (hypProbs[hypIdx]*100) << "%)" << std::endl; 
+	std::cout << "Soft inlier count: " << scores[hypIdx] << " (Selection Probability: " << (int) (hypProbs[hypIdx]*100) << "%)" << std::endl;
 	std::cout << "Entropy of hypothesis distribution: " << hypEntropy << std::endl;
 
 

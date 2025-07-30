@@ -48,11 +48,11 @@ namespace dsacstar
 	* @return 1x3 Jacobean matrix of partial derivatives.
 	*/
 	cv::Mat_<double> dProjectdObj(
-		const cv::Point2f& pt, 
-		const cv::Point3f& obj, 
-		const cv::Mat& rot, 
-		const cv::Mat& trans, 
-		const cv::Mat& camMat, 
+		const cv::Point2f& pt,
+		const cv::Point3f& obj,
+		const cv::Mat& rot,
+		const cv::Mat& trans,
+		const cv::Mat& camMat,
 		float maxReproErr)
 	{
 	    double f = camMat.at<float>(0, 0);
@@ -118,7 +118,7 @@ namespace dsacstar
 	 * @brief Calculates the Jacobean of the PNP function w.r.t. the scene coordinate inputs.
 	 *
 	 * PNP is treated as a n x 3 -> 6 fnuction, i.e. it takes n 3D coordinates and maps them to a 6D pose.
-	 * The Jacobean is therefore 6x3n. 
+	 * The Jacobean is therefore 6x3n.
 	 * The Jacobean is calculated using central differences, and hence only suitable for small point sets.
 	 * For gradients of large points sets, we use an analytical approximaten, see the backward function in dsacstar.cpp.
 	 *
@@ -128,7 +128,7 @@ namespace dsacstar
 	 * @param eps Step size for central differences.
 	 * @return 6x3n Jacobean matrix of partial derivatives.
 	 */
-	cv::Mat_<double> dPNP(    
+	cv::Mat_<double> dPNP(
 	    const std::vector<cv::Point2f>& imgPts,
 	    std::vector<cv::Point3f> objPts,
 	    const cv::Mat& camMat,
@@ -142,7 +142,7 @@ namespace dsacstar
 
 	    cv::Mat_<double> jacobean = cv::Mat_<double>::zeros(6, objPts.size() * 3);
 	    bool success;
-	    
+
 	    // central differences
 	    for(int i = 0; i < effectiveObjPoints; i++)
 	    for(unsigned j = 0; j < 3; j++)
@@ -219,13 +219,13 @@ namespace dsacstar
 	    float maxReproErr)
 	{
 	    int hypCount = sampledPoints.size();
-	    // beta parameter for soft inlier counting.	
-	    float inlierBeta = 5 / inlierThreshold; 
-	    
+	    // beta parameter for soft inlier counting.
+	    float inlierBeta = 5 / inlierThreshold;
+
 	    // collect 2d-3D correspondences
 	    std::vector<std::vector<cv::Point2f>> imgPts(hypCount);
 	    std::vector<std::vector<cv::Point3f>> objPts(hypCount);
-	    
+
 	    #pragma omp parallel for
 	    for(int h = 0; h < hypCount; h++)
 	    {
@@ -237,7 +237,7 @@ namespace dsacstar
 	        {
 	            int x = sampledPoints[h][i].x;
 	            int y = sampledPoints[h][i].y;
-		  
+
 	            imgPts[h].push_back(sampling(y, x));
 	            objPts[h].push_back(cv::Point3f(
 					sceneCoordinates[batchIdx][0][y][x],
@@ -245,7 +245,7 @@ namespace dsacstar
 					sceneCoordinates[batchIdx][2][y][x]));
 	        }
 	    }
-	    
+
 	    // derivatives of the soft inlier scores
 	    std::vector<cv::Mat_<double>> dReproErrs(reproErrs.size());
 
@@ -253,7 +253,7 @@ namespace dsacstar
 	    for(int h = 0; h < hypCount; h++)
 	    {
 	        if(hypProbs[h] < PROB_THRESH) continue;
-			
+
 	        dReproErrs[h] = cv::Mat_<double>::zeros(reproErrs[h].size());
 
 			for(int x = 0; x < sampling.cols; x++)
@@ -272,7 +272,7 @@ namespace dsacstar
 	    // derivative of the loss wrt the score
 	    #pragma omp parallel for
 	    for(int h = 0; h < hypCount; h++)
-	    {  
+	    {
 	        cv::Mat_<double> jacobean = cv::Mat_<double>::zeros(1, sampling.cols * sampling.rows * 3);
 	        jacobeansScore[h] = jacobean;
 
@@ -300,7 +300,7 @@ namespace dsacstar
 					sceneCoordinates[batchIdx][0][y][x],
 					sceneCoordinates[batchIdx][1][y][x],
 					sceneCoordinates[batchIdx][2][y][x]);
-		  
+
 	            // account for the direct influence of all scene coordinates in the score
 	            cv::Mat_<double> dPdO = dProjectdObj(pt, obj, rot, hyps[h].second, camMat, maxReproErr);
 	            dPdO *= dReproErrs[h](y, x);
@@ -317,11 +317,11 @@ namespace dsacstar
 	        {
 	            unsigned x = sampledPoints[h][i].x;
 	            unsigned y = sampledPoints[h][i].y;
-		    
+
 	            jacobean.colRange(x * dReproErrs[h].rows * 3 + y * 3, x * dReproErrs[h].rows * 3 + y * 3 + 3) += supportPointGradients.colRange(i * 3, i * 3 + 3);
 	        }
 	    }
-	    
+
 	}
 
 	/**
@@ -340,7 +340,7 @@ namespace dsacstar
 	 * @param camMat Camera calibration matrix.
 	 * @param inlierAlpha Alpha parameter for soft inlier counting.
 	 * @param inlierThreshold RANSAC inlier threshold.
-	 * @param maxReproj Reprojection errors are clamped to this maximum value.	 
+	 * @param maxReproj Reprojection errors are clamped to this maximum value.
 	 * @return List of Jacobean matrices. One 1 x 3n matrix per pose hypothesis.
 	 */
 	std::vector<cv::Mat_<double>> dSMScore(
@@ -360,7 +360,7 @@ namespace dsacstar
 
 	    // assemble the gradients wrt the scores, ie the gradients of soft max function
 	    std::vector<double> scoreOutputGradients(sampledPoints.size());
-	        
+
 	    #pragma omp parallel for
 	    for(unsigned i = 0; i < sampledPoints.size(); i++)
 	    {
@@ -370,18 +370,18 @@ namespace dsacstar
 	        for(unsigned j = 0; j < sampledPoints.size(); j++)
 	            scoreOutputGradients[i] -= hypProbs[i] * hypProbs[j] * losses[j];
 	    }
-	 
+
 	    // calculate gradients of the score function
 	    std::vector<cv::Mat_<double>> jacobeansScore;
 	    dScore(
-	    	sceneCoordinates, 
-	    	sampling, 
-	    	sampledPoints, 
-	    	jacobeansScore, 
-	    	scoreOutputGradients, 
-	    	initHyps, 
-	    	initReproErrs, 
-	    	jacobeansHyps, 
+	    	sceneCoordinates,
+	    	sampling,
+	    	sampledPoints,
+	    	jacobeansScore,
+	    	scoreOutputGradients,
+	    	initHyps,
+	    	initReproErrs,
+	    	jacobeansHyps,
 	    	hypProbs,
 	    	camMat,
 	    	inlierAlpha,
@@ -394,7 +394,7 @@ namespace dsacstar
 	    {
 	        // reorder to points row first into rows
 	        cv::Mat_<double> reformat = cv::Mat_<double>::zeros(sampling.cols * sampling.rows, 3);
-		
+
 			if(hypProbs[i] >= PROB_THRESH)
 			{
 				for(int x = 0; x < sampling.cols; x++)
@@ -403,14 +403,14 @@ namespace dsacstar
 		            cv::Mat_<double> patchGrad = jacobeansScore[i].colRange(
 		              x * sampling.rows * 3 + y * 3,
 		              x * sampling.rows * 3 + y * 3 + 3);
-			    
+
 		            patchGrad.copyTo(reformat.row(y * sampling.cols + x));
 		        }
 			}
 
 	        jacobeansScore[i] = reformat;
 	    }
-	    
+
 	    return jacobeansScore;
 	}
 
@@ -423,8 +423,8 @@ namespace dsacstar
 	 * @return 1x3 Jacobean matrix of partial derivatives.
 	 */
 	cv::Mat_<double> dTransformdObj(
-		const cv::Point3f& pt, 
-		const cv::Point3f& obj, 
+		const cv::Point3f& pt,
+		const cv::Point3f& obj,
 		const dsacstar::pose_t& hyp,
 		float maxDist)
 	{
@@ -474,8 +474,8 @@ namespace dsacstar
  * @return 1x6 Jacobean matrix of partial derivatives.
  */
 cv::Mat_<double> dTransformdHyp(
-	const cv::Point3f& pt, 
-	const cv::Point3f& obj, 
+	const cv::Point3f& pt,
+	const cv::Point3f& obj,
 	const dsacstar::pose_t& hyp,
 	float maxDist)
 {

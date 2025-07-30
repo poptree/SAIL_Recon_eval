@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
+
 # Important, install a specific version.
 # pip install pycolmap==0.4.0
 import pycolmap
@@ -206,7 +207,9 @@ def process_colmap(raw_data_path: Path, ace_data_path: Path):
         colmap_tmp_path.mkdir(exist_ok=True)
 
         print(f"Extracting colmap raw data to: {colmap_tmp_path}")
-        subprocess.run(["tar", "-xzf", colmap_raw_archive, "-C", colmap_tmp_path], check=True)
+        subprocess.run(
+            ["tar", "-xzf", colmap_raw_archive, "-C", colmap_tmp_path], check=True
+        )
 
         # If we got here there were no errors. Rename to the final folder.
         print(f"Renaming {colmap_tmp_path} to {colmap_raw_path}")
@@ -242,10 +245,18 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    print("\n############################################################################")
-    print("# Please make sure to check this dataset's license before using it!        #")
-    print("# https://www.tanksandtemples.org/license/                                 #")
-    print("############################################################################\n\n")
+    print(
+        "\n############################################################################"
+    )
+    print(
+        "# Please make sure to check this dataset's license before using it!        #"
+    )
+    print(
+        "# https://www.tanksandtemples.org/license/                                 #"
+    )
+    print(
+        "############################################################################\n\n"
+    )
 
     license_response = input('Please confirm with "yes" or abort. ')
     if not (license_response == "yes" or license_response == "y"):
@@ -253,16 +264,33 @@ if __name__ == "__main__":
         exit()
 
     if args.with_colmap:
-
-        print("\n#############################################################################")
-        print("# To enable reproducing our paper results, we make available COLMAP         #")
-        print("# reconstructions for the Tanks&Temples dataset. Please make sure you agree #")
-        print("# to the COLMAP license, including licenses of its third party components   #")
-        print("# and the Tanks and Temples data license before using them.                 #")
-        print("# https://github.com/colmap/colmap?tab=License-1-ov-file#readme             #")
-        print("# https://github.com/colmap/colmap/blob/main/src/thirdparty/SiftGPU/LICENSE #")
-        print("# https://www.tanksandtemples.org/license/                                  #")
-        print("#############################################################################\n\n")
+        print(
+            "\n#############################################################################"
+        )
+        print(
+            "# To enable reproducing our paper results, we make available COLMAP         #"
+        )
+        print(
+            "# reconstructions for the Tanks&Temples dataset. Please make sure you agree #"
+        )
+        print(
+            "# to the COLMAP license, including licenses of its third party components   #"
+        )
+        print(
+            "# and the Tanks and Temples data license before using them.                 #"
+        )
+        print(
+            "# https://github.com/colmap/colmap?tab=License-1-ov-file#readme             #"
+        )
+        print(
+            "# https://github.com/colmap/colmap/blob/main/src/thirdparty/SiftGPU/LICENSE #"
+        )
+        print(
+            "# https://www.tanksandtemples.org/license/                                  #"
+        )
+        print(
+            "#############################################################################\n\n"
+        )
 
         license_response = input('Please confirm with "yes" or abort. ')
         if not (license_response == "yes" or license_response == "y"):
