@@ -1,0 +1,36 @@
+{
+    "method": "banerfacto",
+    "ba_exp_name": "ssim_ba/ba",
+    "baconfig": [
+        {
+            "optimizers.camera-opt.scheduler.warmup-steps": 100,
+            "optimizers.camera-opt.scheduler.max-steps": 0,
+            "optimizers.camera-opt.optimizer.lr": 0.001,
+            "optimizers.camera-opt.scheduler.lr-final": 0.0001,
+            "pipeline.datamanager.train-num-rays-per-batch": 8196,
+            "pipeline.model.camera-optimizer.trans-l2-penalty": 0.001,
+            "pipeline.model.camera-optimizer.rot-l2-penalty": 0.001
+            
+        },
+           {
+            "optimizers.camera-opt.scheduler.warmup-steps": 100,
+            "optimizers.camera-opt.scheduler.max-steps": 0,
+            "optimizers.camera-opt.optimizer.lr": 0.005,
+            "optimizers.camera-opt.scheduler.lr-final": 0.0001,
+            "pipeline.datamanager.train-num-rays-per-batch": 8196,
+            "pipeline.model.camera-optimizer.trans-l2-penalty": 0.001,
+            "pipeline.model.camera-optimizer.rot-l2-penalty": 0.001
+            
+        },
+           {
+            "optimizers.camera-opt.scheduler.warmup-steps": 100,
+            "optimizers.camera-opt.scheduler.max-steps": 0,
+            "optimizers.camera-opt.optimizer.lr": 0.005,
+            "optimizers.camera-opt.scheduler.lr-final": 0.00001,
+            "pipeline.datamanager.train-num-rays-per-batch": 8196,
+            "pipeline.model.camera-optimizer.trans-l2-penalty": 0.001,
+            "pipeline.model.camera-optimizer.rot-l2-penalty": 0.001
+            
+        }
+    ]
+}

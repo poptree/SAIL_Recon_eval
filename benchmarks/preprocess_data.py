@@ -81,9 +81,9 @@ def convert_nerf_blender_format_to_vggt_format(json_file_path, output_file_path)
     with open(json_file_path, 'r') as f:
         transforms_json = json.load(f)
     
-    w2cs_opengl = [frame["transform_matrix"] for frame in transforms_json['frames']]
-    w2cs_opencv = [convert_opencv_to_opengl(w2c,) for w2c in w2cs_opengl]
-    c2ws_opencv = [np.linalg.inv(w2c) for w2c in w2cs_opencv]
+    c2ws_opengl = [frame["transform_matrix"] for frame in transforms_json['frames']]
+    c2ws_opencv = [convert_opengl_to_opencv(w2c,) for w2c in c2ws_opengl]
+    # c2ws_opencv = [np.linalg.inv(w2c) for w2c in w2cs_opencv]
 
 
     with open(output_file_path, 'w') as f:

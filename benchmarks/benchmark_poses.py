@@ -26,8 +26,8 @@ if __name__ == '__main__':
                         help='Type of camera optimizer to use, might improve quality but break the benchmark')
     parser.add_argument('--max_resolution', type=int, default=640,
                         help='Maximum resolution of the images to use for the benchmark')
-    parser.add_argument('--run_ba',action='store_true',
-                        help='If true, run bundle adjustment before runing the benchmark')
+    parser.add_argument('--run_ba',type=str,default=None,
+                        help='If input is int, run bundle adjustment before runing the benchmark')
     args = parser.parse_args()
 
     run_benchmark(

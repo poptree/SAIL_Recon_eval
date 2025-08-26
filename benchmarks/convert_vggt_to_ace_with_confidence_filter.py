@@ -94,8 +94,8 @@ def convert_vggt_poses_to_ace_poses(data_pattern:str, pose_file: str, intrinsics
     elif confidence_depth_file is not None :
         confidences = [1001 for _ in range(len(dataset_frames))] 
     elif confidence_point_file is not None:
-        median_1_25_95 = np.sort(confidence_point[:,1])[int(len(confidence_point[:,1])*0.8)]
-        median_1_50_95 = np.sort(confidence_point[:,2])[int(len(confidence_point[:,2])*0.8)]
+        median_1_25_95 = np.sort(confidence_point[:,1])[int(len(confidence_point[:,1])*0.9)]
+        median_1_50_95 = np.sort(confidence_point[:,2])[int(len(confidence_point[:,2])*0.9)]
         def confidence_filter(confidence, median_1_25_95, median_1_50_95):
             if confidence[0] < 0.2:
                 return 500

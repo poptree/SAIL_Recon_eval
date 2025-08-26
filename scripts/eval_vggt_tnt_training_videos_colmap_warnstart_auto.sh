@@ -1,15 +1,14 @@
 run_benchmark=true
 render_visualization=true
 use_ba=true
-baconfigs=baconfig/nerfacto.json
 benchmarking_environment="nerfstudio"
 benchmarking_method="nerfacto"
 # benchmarking_split_folder="benchmark_datasets/mip360_split_files"
-benchmarking_out_dir="benchmark_output/vggt_multiba_3_1e-3_1e-5/tnt_training_videos"
-out_dir="reconstructions/tnt_video_v6v3_30k_100_300"
+benchmarking_out_dir="benchmark_output/vggt_colmap_warnstart/tnt_training_videos"
+out_dir="reconstructions/tnt_video_colmap_refine_v1"
 datasets_folder="benchmark_datasets/tnt_training_videos"
-scenes=("Barn" "Caterpillar" "Church" "Ignatius" "Meetingroom" "Truck" "Courthouse")
-# scenes=("Barn" )
+# scenes=("Barn" "Caterpillar" "Church" "Ignatius" "Meetingroom" "Truck" "Courthouse")
+scenes=("Caterpillar" )
 
 for scene in ${scenes[*]}; do
     input_rgb_files="${datasets_folder}/${scene}/*.jpg"
@@ -28,7 +27,7 @@ for scene in ${scenes[*]}; do
     if $run_benchmark; then
         benchmarking_scene_dir="${benchmarking_out_dir}/${scene}"
         mkdir -p ${benchmarking_scene_dir}
-        python -m benchmarks.benchmark_poses --pose_file ${output_ace_file} --output_dir ${benchmarking_scene_dir} --images_glob_pattern "${input_rgb_files}"  --method ${benchmarking_method} --camera_optimizer off --run_ba ${baconfigs}  2>&1 | tee ${benchmarking_out_dir}/log_${scene}.txt
+        python -m benchmarks.benchmark_poses --pose_file ${output_ace_file} --output_dir ${benchmarking_scene_dir} --images_glob_pattern "${input_rgb_files}"  --method ${benchmarking_method} --camera_optimizer off --run_ba 3  2>&1 | tee ${benchmarking_out_dir}/log_${scene}.txt
     fi
 done
 

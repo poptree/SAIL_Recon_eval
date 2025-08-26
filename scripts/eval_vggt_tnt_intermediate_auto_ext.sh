@@ -1,23 +1,24 @@
 run_benchmark=true
 render_visualization=true
 use_ba=true
-baconfigs=baconfig/nerfacto.json
+baconfigs=baconfig/nerfacto_imageset.json
 benchmarking_environment="nerfstudio"
 benchmarking_method="nerfacto"
 # benchmarking_split_folder="benchmark_datasets/mip360_split_files"
-benchmarking_out_dir="benchmark_output/vggt_multiba_3_1e-3_1e-5/tnt_training_videos"
-out_dir="reconstructions/tnt_video_v6v3_30k_100_300"
-datasets_folder="benchmark_datasets/tnt_training_videos"
-scenes=("Barn" "Caterpillar" "Church" "Ignatius" "Meetingroom" "Truck" "Courthouse")
-# scenes=("Barn" )
+benchmarking_out_dir="benchmark_output/vggt_ba_1e-31e-5_nopen/tnt_intermediate"
+out_dir="reconstructions/tnt_imagev6v3_30k_100_300"
+datasets_folder="benchmark_datasets/tnt_intermediate"
+# scenes=("Barn" "Caterpillar" "Church" "Ignatius" "Meetingroom" "Truck")
+scenes=("M60" "Panther")
+# scenes=( )
 
 for scene in ${scenes[*]}; do
     input_rgb_files="${datasets_folder}/${scene}/*.jpg"
     scene_out_dir="${out_dir}/${scene}"
 
-    vggt_pose_file="${out_dir}/training__${scene}/pred.txt"
-    intrinsics_file="${out_dir}/training__${scene}/intrinsic_row.txt"
-    output_ace_file="${out_dir}/training__${scene}/ace_pose.txt"
+    vggt_pose_file="${out_dir}/intermediate__${scene}/pred.txt"
+    intrinsics_file="${out_dir}/intermediate__${scene}/intrinsic_row.txt"
+    output_ace_file="${out_dir}/intermediate__${scene}/ace_pose.txt"
 
 
     mkdir -p ${scene_out_dir}

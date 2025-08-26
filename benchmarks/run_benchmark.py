@@ -79,80 +79,90 @@ def run_benchmark(pose_file: Path, images_glob_pattern: str, working_dir: Path, 
     if dry_run:
         return None
     
-    if run_ba:
-        with open(nerf_data_path / 'transforms.json', 'r') as f:
-            transforms_json = json.load(f)
+    try:
+        if run_ba is not None:
+            with open(run_ba, "r") as f:
+                ba_configs_all = json.load(f)
+                ba_exp_name = ba_configs_all["ba_exp_name"]
+                ba_configs = ba_configs_all["baconfig"]
+                ba_method = ba_configs_all["method"]
+            for ba_iter,ba_config in enumerate(ba_configs):
+                with open(nerf_data_path / 'transforms.json', 'r') as f:
+                    transforms_json = json.load(f)
 
-        with open(nerf_data_path / 'transforms_before_ba.json', 'w') as f:
-            json.dump(transforms_json, f, indent=4)
-        transforms_json["train_filenames"] += transforms_json["test_filenames"]
+                with open(nerf_data_path / f'transforms_before_ba_{ba_iter}.json', 'w') as f:
+                    json.dump(transforms_json, f, indent=4)
+                transforms_json["train_filenames"] += transforms_json["test_filenames"]
 
-        with open(nerf_data_path / 'transforms.json', 'w') as f:
-            json.dump(transforms_json, f, indent=4)
+                with open(nerf_data_path / 'transforms.json', 'w') as f:
+                    json.dump(transforms_json, f, indent=4)
+                
+                # Run bundle adjustment
+                print('Runing BA...')
+                import copy
+                if ns_train_extra_args is None:
+                    ns_train_extra_args = {}
+                ns_ba_extra_args = copy.deepcopy(ns_train_extra_args)
+                # method="barf-grad"
+                ns_ba_extra_args.update(ba_config)
+                ns_ba_data_extra_args = {
+                    "eval-mode": "all",
+                
+                }
+                fitted_nerf_path = fit_nerf_with_nerfstudio(nerf_data_path=nerf_data_path,
+                                                            downscale_factor=downscale_factor,
+                                                            preload_images=preload_images,
+                                                            ns_train_extra_args=ns_ba_extra_args,
+                                                            method=ba_method,
+                                                            # method="barf-grad",
+                                                            camera_optimizer="SO3xR3",
+                                                            max_num_iterations=30000,
+                                                            exp_name=f"{ba_exp_name}{ba_iter}",
+                                                            ns_data_extra_args=ns_ba_data_extra_args)
+                print("BA Done")
+                ba_poses = export_pose_after_ba(nerf_output_dir=fitted_nerf_path,
+                                    output_json=nerf_data_path)
+                update_cam_pose_after_ba(json_before_ba=nerf_data_path / f'transforms_before_ba_{ba_iter}.json',
+                                        json_after_ba_train=ba_poses[0],
+                                        json_after_ba_test=None,
+                                        output_json=nerf_data_path / 'transforms.json')
+                with open(nerf_data_path / f'transforms_before_ba_{ba_iter}.json', 'r') as f:
+                    transforms_json_before_ba = json.load(f)
+                with open(nerf_data_path / 'transforms.json', 'r') as f:
+                    transforms_json_after_ba = json.load(f)
+                transforms_json_after_ba["train_filenames"] = transforms_json_before_ba["train_filenames"]
+                transforms_json_after_ba["test_filenames"] = transforms_json_before_ba["test_filenames"]
+                transforms_json_after_ba["val_filenames"] = transforms_json_before_ba["val_filenames"]
+                with open(nerf_data_path / 'transforms.json', 'w') as f:
+                    json.dump(transforms_json_after_ba, f, indent=4)
+    except Exception as e:
+        print(f'Error during bundle adjustment: {e}')
         
-        # Run bundle adjustment
-        print('Runing BA...')
-        import copy
-        if ns_train_extra_args is None:
-            ns_train_extra_args = {}
-        ns_ba_extra_args = copy.deepcopy(ns_train_extra_args)
-        # method="barf-grad"
-        ns_ba_extra_args.update({"optimizers.camera-opt.scheduler.warmup-steps":0,
-                                #  "pipeline.datamanager.dataparser.eval_mode": "all",
-                                    "optimizers.camera-opt.scheduler.max-steps":10000,
-                                    "optimizers.camera-opt.optimizer.lr": 0.001,
-                                    "optimizers.camera-opt.scheduler.lr-final":0.0001,
-                                    "pipeline.datamanager.train-num-rays-per-batch": 8196,
-                                    # "pipeline.datamanager.dataloader-num-workers": 4,
-                                    "pipeline.model.camera-optimizer.trans-l2-penalty": 0.000001,
-                                    "pipeline.model.camera-optimizer.rot-l2-penalty": 0.000001,
-                                    })
-        ns_ba_data_extra_args = {
-            "eval-mode": "all",
-        
-        }
-        fitted_nerf_path = fit_nerf_with_nerfstudio(nerf_data_path=nerf_data_path,
-                                                    downscale_factor=downscale_factor,
-                                                    preload_images=preload_images,
-                                                    ns_train_extra_args=ns_ba_extra_args,
-                                                    method=method,
-                                                    # method="barf-grad",
-                                                    camera_optimizer="SO3xR3",
-                                                    max_num_iterations=10000,
-                                                    exp_name="ba_1e-31e-4",
-                                                    ns_data_extra_args=ns_ba_data_extra_args)
-        print("BA Done")
-        ba_poses = export_pose_after_ba(nerf_output_dir=fitted_nerf_path,
-                             output_json=nerf_data_path)
-        update_cam_pose_after_ba(json_before_ba=nerf_data_path / 'transforms_before_ba.json',
-                                 json_after_ba_train=ba_poses[0],
-                                 json_after_ba_test=None,
-                                 output_json=nerf_data_path / 'transforms.json')
-        with open(nerf_data_path / 'transforms_before_ba.json', 'r') as f:
-            transforms_json_before_ba = json.load(f)
-        with open(nerf_data_path / 'transforms.json', 'r') as f:
-            transforms_json_after_ba = json.load(f)
-        transforms_json_after_ba["train_filenames"] = transforms_json_before_ba["train_filenames"]
-        transforms_json_after_ba["test_filenames"] = transforms_json_before_ba["test_filenames"]
-        transforms_json_after_ba["val_filenames"] = transforms_json_before_ba["val_filenames"]
-        with open(nerf_data_path / 'transforms.json', 'w') as f:
-            json.dump(transforms_json_after_ba, f, indent=4)
 
 
     # Fit NeRF
-    print('Fitting NeRF...')
-    fitted_nerf_path = fit_nerf_with_nerfstudio(nerf_data_path=nerf_data_path,
-                                                downscale_factor=downscale_factor,
-                                                preload_images=preload_images,
-                                                ns_train_extra_args=ns_train_extra_args,
-                                                method=method,
-                                                camera_optimizer=camera_optimizer,
-                                                ns_data_extra_args={})
+    try:
+        print('Fitting NeRF...')
+        fitted_nerf_path = fit_nerf_with_nerfstudio(nerf_data_path=nerf_data_path,
+                                                    downscale_factor=downscale_factor,
+                                                    preload_images=preload_images,
+                                                    ns_train_extra_args=ns_train_extra_args,
+                                                    method=method,
+                                                    camera_optimizer=camera_optimizer,
+                                                    ns_data_extra_args={})
 
+    except Exception as e:
+        print(f'Error during NeRF fitting: {e}')
+        
     # Evaluate PSNR and other metrics
-    print('Evaluating...')
-    eval_json_path = eval_nerf_with_nerfstudio(nerf_output_dir=fitted_nerf_path)
-    print('Eval json is at ', eval_json_path)
+    try:
+
+        print('Evaluating...')
+        eval_json_path = eval_nerf_with_nerfstudio(nerf_output_dir=fitted_nerf_path)
+        print('Eval json is at ', eval_json_path)
+    except Exception as e:
+        print(f'Error during evaluation: {e}')
+        eval_json_path = None
     return eval_json_path
 
 import os

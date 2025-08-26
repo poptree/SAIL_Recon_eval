@@ -1,6 +1,7 @@
 run_benchmark=true
 render_visualization=true
 use_ba=true
+baconfigs=baconfig/nerfacto.json
 benchmarking_environment="nerfstudio"
 benchmarking_method="nerfacto"
 # benchmarking_split_folder="benchmark_datasets/mip360_split_files"

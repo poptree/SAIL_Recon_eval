@@ -24,10 +24,11 @@ benchmarking_dense_pcinit=true
 
 # 7Scenes comes with a pre-defined train/test split, split files expected in this folder
 # generate using create_7scenes_split.py
-benchmarking_split_folder="split_files"
+benchmarking_split_folder="benchmark_datasets/7scenes"
 
-scenes=("chess" "fire" "heads" "office" "pumpkin" "redkitchen" "stairs")
-
+# scenes=("chess" "fire" "heads" "office" "pumpkin" "redkitchen" "stairs")
+# scenes=("chess" )
+scenes=( "redkitchen" )
 for scene in ${scenes[*]}; do
   # find color images for the reconstruction
   input_rgb_files="${datasets_folder}/${scene}/seq-*/*.color.png"
@@ -54,6 +55,6 @@ for scene in ${scenes[*]}; do
   if $run_benchmark; then
     benchmarking_scene_dir="${benchmarking_out_dir}/${scene}"
     mkdir -p ${benchmarking_scene_dir}
-    conda run --no-capture-output -n ${benchmarking_environment} python -m benchmarks.benchmark_poses --pose_file ${scene_out_dir}/poses_final.txt --output_dir ${benchmarking_scene_dir} --images_glob_pattern "${input_rgb_files}" --split_json ${benchmarking_split_folder}/7scenes_${scene}.json --method ${benchmarking_method} 2>&1 | tee ${benchmarking_out_dir}/log_${scene}.txt
+    python -m benchmarks.benchmark_poses --pose_file ${scene_out_dir}/poses_final.txt --output_dir ${benchmarking_scene_dir} --images_glob_pattern "${input_rgb_files}" --split_json ${benchmarking_split_folder}/7scenes_${scene}.json --method ${benchmarking_method} 2>&1 | tee ${benchmarking_out_dir}/log_${scene}.txt
   fi
 done

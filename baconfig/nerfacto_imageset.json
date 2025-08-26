@@ -1,0 +1,16 @@
+{
+    "method": "nerfacto",
+    "ba_exp_name": "pose_ba_standard_more_ba_more/ba",
+    "baconfig": [
+        {
+            "optimizers.camera-opt.scheduler.warmup-steps": 0,
+            "optimizers.camera-opt.scheduler.max-steps": 1000,
+            "optimizers.camera-opt.optimizer.lr": 0.001,
+            "optimizers.camera-opt.scheduler.lr-final": 0.0001,
+            "pipeline.datamanager.train-num-rays-per-batch": 8196,
+            "pipeline.model.camera-optimizer.trans-l2-penalty": 0.001,
+            "pipeline.model.camera-optimizer.rot-l2-penalty": 0.001,
+            "max_num_iterations": 10000
+        }
+    ]
+}

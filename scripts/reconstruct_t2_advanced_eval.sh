@@ -3,11 +3,11 @@
 reconstruction_exe="ace_zero.py"
 
 # folder with image files
-datasets_folder="benchmark_datasets/7scenes"
+datasets_folder="datasets/t2/advanced"
 # output directory for the reconstruction
-out_dir="reconstructions/7scenes"
+out_dir="reconstructions/t2_advanced"
 # target directory for benchmarking results
-benchmarking_out_dir="benchmark/7scenes"
+benchmarking_out_dir="benchmark/t2_advanced"
 
 # render visualization of the reconstruction, slows down reconstruction considerably
 render_visualization=false
@@ -20,21 +20,18 @@ benchmarking_environment="nerfstudio"
 benchmarking_method="nerfacto"
 # when using splatfacto, we need a point cloud initialization, either sparse or dense
 # dense is recommended if you have very dense coverage of the scene, eg. > 2000 images
-benchmarking_dense_pcinit=true
+benchmarking_dense_pcinit=false
 
-# 7Scenes comes with a pre-defined train/test split, split files expected in this folder
-# generate using create_7scenes_split.py
-benchmarking_split_folder="split_files"
-
-scenes=("chess" "fire" "heads" "office" "pumpkin" "redkitchen" "stairs")
+# scenes=("Auditorium" "Ballroom" "Courtroom" "Palace" "Temple") # "Museum"
+scenes=("Palace"     ) # "Museum"
 
 for scene in ${scenes[*]}; do
   # find color images for the reconstruction
-  input_rgb_files="${datasets_folder}/${scene}/seq-*/*.color.png"
+  input_rgb_files="${datasets_folder}/${scene}/*.jpg"
   scene_out_dir="${out_dir}/${scene}"
 
   if $render_visualization; then
-    visualization_cmd="--render_visualization True --render_marker_size 0.02"
+    visualization_cmd="--render_visualization True --render_marker_size 0.05"
   else
     visualization_cmd="--render_visualization False"
   fi
@@ -48,12 +45,12 @@ for scene in ${scenes[*]}; do
   mkdir -p ${scene_out_dir}
 
   # run ACE0 reconstruction
-  python $reconstruction_exe "${input_rgb_files}" ${scene_out_dir} --try_seeds 5 ${visualization_cmd} --use_external_focal_length 525 ${export_pc_cmd} 2>&1 | tee ${scene_out_dir}/log_${scene}.txt
+  python $reconstruction_exe "${input_rgb_files}" ${scene_out_dir} --try_seeds 5 ${visualization_cmd} --seed_parallel_workers 5 ${export_pc_cmd} 2>&1 | tee ${scene_out_dir}/log_${scene}.txt
 
   # run benchmarking if requested
   if $run_benchmark; then
     benchmarking_scene_dir="${benchmarking_out_dir}/${scene}"
     mkdir -p ${benchmarking_scene_dir}
-    conda run --no-capture-output -n ${benchmarking_environment} python -m benchmarks.benchmark_poses --pose_file ${scene_out_dir}/poses_final.txt --output_dir ${benchmarking_scene_dir} --images_glob_pattern "${input_rgb_files}" --split_json ${benchmarking_split_folder}/7scenes_${scene}.json --method ${benchmarking_method} 2>&1 | tee ${benchmarking_out_dir}/log_${scene}.txt
+    python -m benchmarks.benchmark_poses --pose_file ${scene_out_dir}/poses_final.txt --output_dir ${benchmarking_scene_dir} --images_glob_pattern "${input_rgb_files}" --method ${benchmarking_method} 2>&1 | tee ${benchmarking_out_dir}/log_${scene}.txt
   fi
 done

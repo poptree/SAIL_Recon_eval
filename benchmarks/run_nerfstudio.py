@@ -8,7 +8,7 @@ def run_command(cmd):
     process = subprocess.run(cmd, shell=True, check=True)
     # except subprocess.CalledProcessError as e:
     #     print(f"Command '{cmd}' failed with error: {e}")
-    return process.returncode
+    # return process.returncode
 
 
 def export_point_cloud_from_nerfstudio(config_path: Path, output_folder: Path) -> None:
@@ -41,7 +41,8 @@ def fit_nerf_with_nerfstudio(nerf_data_path: Path, downscale_factor: Optional[in
     # So we'll raise an exception if the output dir exists already
     print('Checking existence of output dir', output_dir)
     if output_dir.exists():
-        raise ValueError(f'Output dir {output_dir} already exists. Aborting.')
+        # raise ValueError(f'Output dir {output_dir} already exists. Aborting.')
+        return output_dir
 
     nerfstudio_args = {
         'data': nerf_data_path,
@@ -70,7 +71,7 @@ def fit_nerf_with_nerfstudio(nerf_data_path: Path, downscale_factor: Optional[in
     run_command(cmd)
 
     # Return path to fitted nerf
-    assert output_dir.exists(), f'{output_dir}   Internal error'
+    # assert output_dir.exists(), f'{output_dir}   Internal error'
     return output_dir
 
 def export_pose_after_ba(nerf_output_dir: Path, output_json: Path):
